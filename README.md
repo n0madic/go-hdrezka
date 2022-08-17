@@ -60,5 +60,5 @@ func main() {
 ```
 
 Fully functional examples can be found in the `cmd` folder:
-* **hdrezka-dl** - utility that downloads videos from the HDrezka site
-* **hdrezka-rlz** - utility for receiving and searching for releases (covers) from the site
+* [hdrezka-dl](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-dl) - utility that downloads videos from the HDrezka site
+* [hdrezka-rlz](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-rlz) - utility for receiving and searching for releases (covers) from the site

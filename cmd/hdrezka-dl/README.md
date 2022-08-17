@@ -1,0 +1,30 @@
+# hdrezka-dl
+
+Utility that downloads videos from the HDrezka site
+
+## Install
+
+```
+go install github.com/n0madic/go-hdrezka/cmd/hdrezka-dl@latest
+```
+
+## Help
+
+```
+Usage: hdrezka-dl [--info] [--overwrite] [--quality QUALITY] [--season SEASON] [--translator NAME] URL [OUTPUT]
+
+Positional arguments:
+  URL                    url for download video
+  OUTPUT                 output file for downloaded video
+
+Options:
+  --info, -i             show info about video only
+  --overwrite, -o        overwrite output file if exists
+  --quality QUALITY, -q QUALITY
+                         quality for download video [default: 1080p]
+  --season SEASON, -s SEASON
+                         season for download series
+  --translator NAME, -t NAME
+                         translator for download video
+  --help, -h             display this help and exit
+```

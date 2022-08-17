@@ -43,7 +43,7 @@ var args struct {
 	New            *DefaultCmd    `arg:"subcommand:new" help:"Show new releases"`
 	Newest         *DefaultCmd    `arg:"subcommand:newest" help:"Show newest releases"`
 	Year           *YearCmd       `arg:"subcommand:year" help:"Show releases by year"`
-	Search         *SearchCmd     `arg:"subcommand:search"`
+	Search         *SearchCmd     `arg:"subcommand:search" help:"Search releases"`
 	Extended       bool           `arg:"-e,--extended" help:"Show extended info for release"`
 	Filter         hdrezka.Filter `arg:"-f,--filter" help:"Set filter for release (last|popular|watching)"`
 	Genre          hdrezka.Genre  `arg:"-g,--genre" help:"Set genre for release (animation|cartoons|films|series|show)"`
