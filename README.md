@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	r, err := hdrezka.New("https://hdrezka.ag")
+	r, err := hdrezka.New("https://hdrezka.ag", "https://rezka.ag")
 	if err != nil {
 		panic(err)
 	}
