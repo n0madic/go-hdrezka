@@ -135,10 +135,14 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 
 	// Get translators
 	doc.Find(".b-translator__item").Each(func(i int, s *goquery.Selection) {
+		ua := s.Find("img[title=Украинский]").AttrOr("title", "")
+		if ua == "Украинский" {
+			ua = " UA"
+		}
 		translation := &Translation{
 			r:        r,
 			videoID:  video.ID,
-			Name:     strings.TrimSpace(s.Text()),
+			Name:     strings.TrimSpace(s.Text()) + ua,
 			ID:       s.AttrOr("data-translator_id", ""),
 			IsAds:    s.AttrOr("data-ads", "") == "1",
 			IsCamRip: s.AttrOr("data-camrip", "") == "1",
@@ -233,11 +237,12 @@ func (video *Video) String() string {
 
 	var translations []string
 	for _, translation := range video.Translation {
-		if translation.Name != "" {
+		name := translation.Name
+		if name != "" {
 			if translation.IsDefault {
-				translation.Name += " [default]"
+				name += " [default]"
 			}
-			translations = append(translations, translation.Name)
+			translations = append(translations, name)
 		}
 	}
 	if len(translations) > 0 {
