@@ -21,8 +21,10 @@ type Rating struct {
 	Votes int     `json:"votes,omitempty"`
 }
 
-// Translator is a struct for translator info
-type Translator struct {
+// Translation is a struct for translator info
+type Translation struct {
+	r         *HDRezka
+	videoID   string
 	Name      string `json:"name"`
 	ID        string `json:"id"`
 	IsAds     bool   `json:"is_ads"`
@@ -32,27 +34,27 @@ type Translator struct {
 
 // Video is a struct for video info
 type Video struct {
-	Age             string        `json:"age,omitempty"`
-	Cast            []Person      `json:"cast,omitempty"`
-	Categories      []string      `json:"categories,omitempty"`
-	Country         []string      `json:"country,omitempty"`
-	Cover           string        `json:"cover,omitempty"`
-	DefaultStream   *Stream       `json:"default_stream,omitempty"`
-	Description     string        `json:"description,omitempty"`
-	Director        []Person      `json:"director,omitempty"`
-	Duration        string        `json:"duration,omitempty"`
-	ID              string        `json:"id"`
-	Rating          Rating        `json:"rating,omitempty"`
-	RatingIMDB      Rating        `json:"rating_imdb,omitempty"`
-	RatingKinopoisk Rating        `json:"rating_kinopoisk,omitempty"`
-	ReleaseDate     string        `json:"release_date,omitempty"`
-	Quality         string        `json:"quality,omitempty"`
-	Tagline         string        `json:"tagline,omitempty"`
-	Title           string        `json:"title"`
-	TitleOriginal   string        `json:"title_original,omitempty"`
-	Translation     []*Translator `json:"translation,omitempty"`
-	Type            Genre         `json:"type"`
-	Year            string        `json:"year,omitempty"`
+	Age             string         `json:"age,omitempty"`
+	Cast            []Person       `json:"cast,omitempty"`
+	Categories      []string       `json:"categories,omitempty"`
+	Country         []string       `json:"country,omitempty"`
+	Cover           string         `json:"cover,omitempty"`
+	DefaultStream   *Stream        `json:"default_stream,omitempty"`
+	Description     string         `json:"description,omitempty"`
+	Director        []Person       `json:"director,omitempty"`
+	Duration        string         `json:"duration,omitempty"`
+	ID              string         `json:"id"`
+	Rating          Rating         `json:"rating,omitempty"`
+	RatingIMDB      Rating         `json:"rating_imdb,omitempty"`
+	RatingKinopoisk Rating         `json:"rating_kinopoisk,omitempty"`
+	ReleaseDate     string         `json:"release_date,omitempty"`
+	Quality         string         `json:"quality,omitempty"`
+	Tagline         string         `json:"tagline,omitempty"`
+	Title           string         `json:"title"`
+	TitleOriginal   string         `json:"title_original,omitempty"`
+	Translation     []*Translation `json:"translation,omitempty"`
+	Type            Genre          `json:"type"`
+	Year            string         `json:"year,omitempty"`
 }
 
 // GetVideo returns video info from URL.
@@ -133,20 +135,24 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 
 	// Get translators
 	doc.Find(".b-translator__item").Each(func(i int, s *goquery.Selection) {
-		translator := &Translator{
+		translation := &Translation{
+			r:        r,
+			videoID:  video.ID,
 			Name:     strings.TrimSpace(s.Text()),
 			ID:       s.AttrOr("data-translator_id", ""),
 			IsAds:    s.AttrOr("data-ads", "") == "1",
 			IsCamRip: s.AttrOr("data-camrip", "") == "1",
 		}
-		if translator.ID == defaultTranslator {
-			translator.IsDefault = true
+		if translation.ID == defaultTranslator {
+			translation.IsDefault = true
 		}
-		video.Translation = append(video.Translation, translator)
+		video.Translation = append(video.Translation, translation)
 	})
 	if len(video.Translation) == 0 {
 		name := doc.Find("tr:contains('В переводе:')").Find("td").First().Next().Text()
-		video.Translation = append(video.Translation, &Translator{
+		video.Translation = append(video.Translation, &Translation{
+			r:         r,
+			videoID:   video.ID,
 			Name:      strings.TrimSpace(name),
 			ID:        defaultTranslator,
 			IsDefault: true,

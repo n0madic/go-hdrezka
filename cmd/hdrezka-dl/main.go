@@ -40,7 +40,7 @@ func main() {
 	fmt.Println(video)
 	if args.Info {
 		for _, translation := range video.Translation {
-			episodes, err := r.GetEpisodes(video.ID, translation.ID)
+			episodes, err := translation.GetEpisodes()
 			if err == nil {
 				fmt.Println(translation.Name)
 				for _, season := range episodes.ListSeasons() {
@@ -62,7 +62,7 @@ func main() {
 		args.Output = filename
 	}
 
-	var translation *hdrezka.Translator
+	var translation *hdrezka.Translation
 	for _, tr := range video.Translation {
 		if args.Translator != "" && tr.Name == args.Translator {
 			translation = tr
@@ -76,7 +76,7 @@ func main() {
 		os.Exit(3)
 	}
 
-	downloadStream := func(videoID string, translationID string, season int, episode int) {
+	downloadStream := func(season int, episode int) {
 		output := args.Output
 		if season > 0 && episode > 0 {
 			output = fmt.Sprintf("S%02dE%02d %s", season, episode, output)
@@ -86,7 +86,7 @@ func main() {
 			fmt.Printf("File %s already exists, skipping\n", output)
 			return
 		}
-		stream, err := r.GetStream(videoID, translationID, season, episode)
+		stream, err := translation.GetStream(season, episode)
 		if err != nil {
 			fmt.Printf("ERROR %s: %s", output, err)
 			return
@@ -103,18 +103,18 @@ func main() {
 		}
 	}
 
-	episodes, err := r.GetEpisodes(video.ID, translation.ID)
+	episodes, err := translation.GetEpisodes()
 	if err == nil {
 		for _, season := range episodes.ListSeasons() {
 			if args.Season > 0 && season != args.Season {
 				continue
 			}
 			for _, episode := range episodes.ListEpisodes(season) {
-				downloadStream(video.ID, translation.ID, season, episode)
+				downloadStream(season, episode)
 			}
 		}
 	} else {
-		downloadStream(video.ID, translation.ID, 0, 0)
+		downloadStream(0, 0)
 	}
 }
 

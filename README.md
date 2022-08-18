@@ -43,13 +43,14 @@ func main() {
 	// Print information about video
 	fmt.Println(video)
 	// Get episodes for first translation
-	episodes, err := r.GetEpisodes(video.ID, video.Translation[0].ID)
+	episodes, err := video.Translation[0].GetEpisodes()
 	if err != nil {
 		panic(err)
 	}
 	// Get stream for first season episodes
-	for episode := range episodes[1] {
-		stream, err := r.GetStream(video.ID, video.Translation[0].ID, 1, episode)
+	season := 1
+	for episode := range episodes[season] {
+		stream, err := video.Translation[0].GetStream(season, episode)
 		if err != nil {
 			panic(err)
 		}

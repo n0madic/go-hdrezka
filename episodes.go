@@ -33,10 +33,10 @@ func (e *Episodes) ListEpisodes(season int) []int {
 }
 
 // GetEpisodes get episodes for video.
-func (r *HDRezka) GetEpisodes(videoID, translatorID string) (Episodes, error) {
+func (t *Translation) GetEpisodes() (Episodes, error) {
 	form := url.Values{
-		"id":            {videoID},
-		"translator_id": {translatorID},
+		"id":            {t.videoID},
+		"translator_id": {t.ID},
 		"action":        {"get_episodes"},
 	}
 	var data struct {
@@ -44,7 +44,7 @@ func (r *HDRezka) GetEpisodes(videoID, translatorID string) (Episodes, error) {
 		Message  string `json:"message"`
 		Success  bool   `json:"success"`
 	}
-	if err := r.getCDN(form, &data); err != nil {
+	if err := t.r.getCDN(form, &data); err != nil {
 		return nil, err
 	}
 	if !data.Success {
