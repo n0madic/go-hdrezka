@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/alexflint/go-arg"
+	expandrange "github.com/n0madic/expand-range"
 	"github.com/n0madic/go-hdrezka"
 	"github.com/schollz/progressbar/v3"
 )
@@ -19,22 +20,34 @@ var args struct {
 	Overwrite  bool   `arg:"-o" help:"overwrite output file if exists"`
 	Quality    string `arg:"-q,--quality" default:"1080p" help:"quality for download video"`
 	Season     int    `arg:"-s,--season" help:"season for download series"`
+	Episodes   string `arg:"-e,--episodes" help:"range of episodes for download (required --season arg)"`
 	Translator string `arg:"-t,--translator" placeholder:"NAME" help:"translator for download video"`
 }
 
 func main() {
 	arg.MustParse(&args)
 
+	if args.Season == 0 && args.Episodes != "" {
+		fmt.Println("error: --season arg is required")
+		os.Exit(1)
+	}
+
+	epRange, err := expandrange.Parse(args.Episodes)
+	if args.Episodes != "" && err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	r, err := hdrezka.New(args.URL)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 
 	video, err := r.GetVideo(args.URL)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(2)
+		os.Exit(3)
 	}
 
 	fmt.Println(video)
@@ -73,7 +86,7 @@ func main() {
 	}
 	if args.Translator != "" && translation.Name != args.Translator {
 		fmt.Printf("Translation %s not found\n", args.Translator)
-		os.Exit(3)
+		os.Exit(4)
 	}
 
 	downloadStream := func(season int, episode int) {
@@ -88,7 +101,7 @@ func main() {
 		}
 		stream, err := translation.GetStream(season, episode)
 		if err != nil {
-			fmt.Printf("ERROR %s: %s", output, err)
+			fmt.Printf("ERROR %s: %s\n", output, err)
 			return
 		}
 		format, ok := stream.Formats[args.Quality]
@@ -98,7 +111,7 @@ func main() {
 		}
 		err = downloadFile(format.MP4, output)
 		if err != nil {
-			fmt.Printf("ERROR %s: %s", output, err)
+			fmt.Printf("ERROR %s: %s\n", output, err)
 			return
 		}
 	}
@@ -110,6 +123,9 @@ func main() {
 				continue
 			}
 			for _, episode := range episodes.ListEpisodes(season) {
+				if args.Episodes != "" && !epRange.InRange(uint64(episode)) {
+					continue
+				}
 				downloadStream(season, episode)
 			}
 		}

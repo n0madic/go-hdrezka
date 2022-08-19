@@ -24,6 +24,8 @@ Options:
                          quality for download video [default: 1080p]
   --season SEASON, -s SEASON
                          season for download series
+  --episodes EPISODES, -e EPISODES
+                         range of episodes for download (required --season arg)
   --translator NAME, -t NAME
                          translator for download video
   --help, -h             display this help and exit

@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/alexflint/go-arg v1.4.3
+	github.com/n0madic/expand-range v0.1.0
 	github.com/schollz/progressbar/v3 v3.9.0
 )
 
