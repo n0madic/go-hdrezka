@@ -11,7 +11,7 @@ go install github.com/n0madic/go-hdrezka/cmd/hdrezka-dl@latest
 ## Help
 
 ```
-Usage: hdrezka-dl [--info] [--overwrite] [--quality QUALITY] [--season SEASON] [--translator NAME] URL [OUTPUT]
+Usage: hdrezka-dl [--info] [--overwrite] [--quality QUALITY] [--season SEASON] [--episodes EPISODES] [--translation NAME] URL [OUTPUT]
 
 Positional arguments:
   URL                    url for download video
