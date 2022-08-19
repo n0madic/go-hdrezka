@@ -26,7 +26,7 @@ Options:
                          season for download series
   --episodes EPISODES, -e EPISODES
                          range of episodes for download (required --season arg)
-  --translator NAME, -t NAME
-                         translator for download video
+  --translation NAME, -t NAME
+                         translation for download video
   --help, -h             display this help and exit
 ```

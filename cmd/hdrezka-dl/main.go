@@ -14,14 +14,14 @@ import (
 )
 
 var args struct {
-	URL        string `arg:"positional,required" help:"url for download video"`
-	Output     string `arg:"positional" help:"output file for downloaded video"`
-	Info       bool   `arg:"-i" help:"show info about video only"`
-	Overwrite  bool   `arg:"-o" help:"overwrite output file if exists"`
-	Quality    string `arg:"-q,--quality" default:"1080p" help:"quality for download video"`
-	Season     int    `arg:"-s,--season" help:"season for download series"`
-	Episodes   string `arg:"-e,--episodes" help:"range of episodes for download (required --season arg)"`
-	Translator string `arg:"-t,--translator" placeholder:"NAME" help:"translator for download video"`
+	URL         string `arg:"positional,required" help:"url for download video"`
+	Output      string `arg:"positional" help:"output file for downloaded video"`
+	Info        bool   `arg:"-i" help:"show info about video only"`
+	Overwrite   bool   `arg:"-o" help:"overwrite output file if exists"`
+	Quality     string `arg:"-q,--quality" default:"1080p" help:"quality for download video"`
+	Season      int    `arg:"-s,--season" help:"season for download series"`
+	Episodes    string `arg:"-e,--episodes" help:"range of episodes for download (required --season arg)"`
+	Translation string `arg:"-t,--translation" placeholder:"NAME" help:"translation for download video"`
 }
 
 func main() {
@@ -77,15 +77,15 @@ func main() {
 
 	var translation *hdrezka.Translation
 	for _, tr := range video.Translation {
-		if args.Translator != "" && tr.Name == args.Translator {
+		if args.Translation != "" && tr.Name == args.Translation {
 			translation = tr
 			break
 		} else if tr.IsDefault {
 			translation = tr
 		}
 	}
-	if args.Translator != "" && translation.Name != args.Translator {
-		fmt.Printf("Translation %s not found\n", args.Translator)
+	if args.Translation != "" && translation.Name != args.Translation {
+		fmt.Printf("Translation %s not found\n", args.Translation)
 		os.Exit(4)
 	}
 
