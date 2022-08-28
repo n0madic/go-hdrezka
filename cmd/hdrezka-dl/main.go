@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/alexflint/go-arg"
 	expandrange "github.com/n0madic/expand-range"
@@ -71,8 +70,7 @@ func main() {
 		if video.TitleOriginal != "" {
 			title = video.TitleOriginal
 		}
-		filename := fmt.Sprintf("%s (%s) %s.mp4", title, video.Year, strings.ToLower(args.Quality))
-		args.Output = filename
+		args.Output = fmt.Sprintf("%s (%s).mp4", title, video.Year)
 	}
 
 	var translation *hdrezka.Translation
