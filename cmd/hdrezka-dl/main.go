@@ -14,7 +14,7 @@ import (
 
 var args struct {
 	URL         string `arg:"positional,required" help:"url for download video"`
-	Output      string `arg:"positional" help:"output file for downloaded video"`
+	Output      string `arg:"positional" help:"output file or path for downloaded video"`
 	Info        bool   `arg:"-i" help:"show info about video only"`
 	Overwrite   bool   `arg:"-o" help:"overwrite output file if exists"`
 	Quality     string `arg:"-q,--quality" default:"1080p" help:"quality for download video"`
@@ -64,6 +64,11 @@ func main() {
 	}
 
 	fmt.Println()
+
+	if pathInfo, err := os.Stat(args.Output); err == nil && pathInfo.IsDir() {
+		os.Chdir(args.Output)
+		args.Output = ""
+	}
 
 	if args.Output == "" {
 		title := video.Title

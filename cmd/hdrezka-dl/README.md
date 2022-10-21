@@ -15,7 +15,7 @@ Usage: hdrezka-dl [--info] [--overwrite] [--quality QUALITY] [--season SEASON] [
 
 Positional arguments:
   URL                    url for download video
-  OUTPUT                 output file for downloaded video
+  OUTPUT                 output file or path for downloaded video
 
 Options:
   --info, -i             show info about video only
