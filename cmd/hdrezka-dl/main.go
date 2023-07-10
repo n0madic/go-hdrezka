@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/alexflint/go-arg"
 	expandrange "github.com/n0madic/expand-range"
@@ -75,6 +76,7 @@ func main() {
 		if video.TitleOriginal != "" {
 			title = video.TitleOriginal
 		}
+		title = strings.ReplaceAll(title, "/", "-")
 		args.Output = fmt.Sprintf("%s (%s).mp4", title, video.Year)
 	}
 
