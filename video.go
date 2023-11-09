@@ -64,6 +64,11 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 		return nil, err
 	}
 
+	restrictedMessage := strings.TrimSpace(doc.Find(".b-player__restricted__block_message").First().Contents().Not(".b-restricted__suggest").Text())
+	if restrictedMessage != "" {
+		return nil, fmt.Errorf(restrictedMessage)
+	}
+
 	video := &Video{}
 
 	video.Age = doc.Find("tr:contains('Возраст:')").Find("td").First().Next().Text()
