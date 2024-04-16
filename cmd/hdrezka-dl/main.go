@@ -2,15 +2,12 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 
 	"github.com/alexflint/go-arg"
 	expandrange "github.com/n0madic/expand-range"
 	"github.com/n0madic/go-hdrezka"
-	"github.com/schollz/progressbar/v3"
 )
 
 var args struct {
@@ -137,30 +134,4 @@ func main() {
 	} else {
 		downloadStream(0, 0)
 	}
-}
-
-func downloadFile(url, output string) error {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	f, err := os.OpenFile(output, os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	bar := progressbar.DefaultBytes(
-		resp.ContentLength,
-		"downloading "+output,
-	)
-	_, err = io.Copy(io.MultiWriter(f, bar), resp.Body)
-
-	return err
 }
