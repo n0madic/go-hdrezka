@@ -19,6 +19,7 @@ var args struct {
 	Season      int    `arg:"-s,--season" help:"season for download series"`
 	Episodes    string `arg:"-e,--episodes" help:"range of episodes for download (required --season arg)"`
 	Translation string `arg:"-t,--translation" placeholder:"NAME" help:"translation for download video"`
+	Subtitle    string `arg:"-c,--subtitle" placeholder:"LANG" help:"get subtitle for downloaded video"`
 }
 
 func main() {
@@ -115,6 +116,19 @@ func main() {
 		if err != nil {
 			fmt.Printf("ERROR %s: %s\n", output, err)
 			return
+		}
+		if args.Subtitle != "" {
+			subtitle, ok := stream.Subtitles[args.Subtitle]
+			if !ok {
+				fmt.Printf("ERROR %s: subtitle %s not found\n", output, args.Subtitle)
+				return
+			}
+			outputSub := output[:strings.LastIndex(output, ".")] + ".vtt"
+			err = downloadFile(subtitle, outputSub)
+			if err != nil {
+				fmt.Printf("ERROR %s: %s\n", outputSub, err)
+				return
+			}
 		}
 	}
 

@@ -113,3 +113,19 @@ func parseStreamFormats(str string) map[string]VideoFormat {
 	}
 	return formats
 }
+
+func parseSubtitles(subs string) map[string]string {
+	subtitles := make(map[string]string)
+	for _, entry := range strings.Split(subs, ",") {
+		endBracket := strings.Index(entry, "]")
+		if endBracket == -1 {
+			continue
+		}
+		key := entry[1:endBracket]
+		value := entry[endBracket+1:]
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		subtitles[key] = value
+	}
+	return subtitles
+}

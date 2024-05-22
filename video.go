@@ -119,17 +119,29 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 	if len(initCDNMatch) > 0 {
 		defaultTranslator = string(initCDNMatch[2])
 	}
-	var jsn map[string]interface{}
+	var jsn struct {
+		Streams     string `json:"streams"`
+		Subtitle    any    `json:"subtitle"`
+		SubtitleDef any    `json:"subtitle_def"`
+		Thumbnails  string `json:"thumbnails"`
+	}
 	err = json.NewDecoder(strings.NewReader(initCDNMatch[3])).Decode(&jsn)
 	if err != nil {
 		return nil, err
 	}
-	thumbnails := r.URL.JoinPath(jsn["thumbnails"].(string))
+	thumbnails := r.URL.JoinPath(jsn.Thumbnails)
 	video.DefaultStream = &Stream{
-		URL:         jsn["streams"].(string),
-		Subtitle:    jsn["subtitle"],
-		SubtitleDef: jsn["subtitle_def"],
-		Thumbnails:  thumbnails.String(),
+		URL:        jsn.Streams,
+		Thumbnails: thumbnails.String(),
+	}
+	if subtitleStr, ok := jsn.Subtitle.(string); ok && subtitleStr != "" {
+		video.DefaultStream.Subtitle = subtitleStr
+	}
+	if subtitleDefStr, ok := jsn.SubtitleDef.(string); ok && subtitleDefStr != "" {
+		video.DefaultStream.SubtitleDef = subtitleDefStr
+	}
+	if video.DefaultStream.Subtitle != nil {
+		video.DefaultStream.Subtitles = parseSubtitles(video.DefaultStream.Subtitle.(string))
 	}
 	video.DefaultStream.URL, err = decodeURL(video.DefaultStream.URL)
 	if err != nil {
@@ -252,6 +264,16 @@ func (video *Video) String() string {
 	}
 	if len(translations) > 0 {
 		output += fmt.Sprintf("Translation:\t%s\n", strings.Join(translations, ", "))
+	}
+
+	if video.DefaultStream.Subtitles != nil {
+		var subtitles []string
+		for lang := range video.DefaultStream.Subtitles {
+			subtitles = append(subtitles, lang)
+		}
+		if len(subtitles) > 0 {
+			output += fmt.Sprintf("Subtitles:\t%s\n", strings.Join(subtitles, ", "))
+		}
 	}
 
 	if video.Description != "" {

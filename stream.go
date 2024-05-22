@@ -15,6 +15,7 @@ type VideoFormat struct {
 // Stream is a struct for stream info
 type Stream struct {
 	Formats     map[string]VideoFormat
+	Subtitles   map[string]string
 	Subtitle    any    `json:"subtitle"`
 	SubtitleDef any    `json:"subtitle_def"`
 	Thumbnails  string `json:"thumbnails"`
@@ -53,6 +54,10 @@ func (t *Translation) GetStream(season_episode ...int) (*Stream, error) {
 	err := t.r.getCDN(form, &stream)
 	if err != nil {
 		return nil, err
+	}
+
+	if subtitleStr, ok := stream.Subtitle.(string); ok && subtitleStr != "" {
+		stream.Subtitles = parseSubtitles(subtitleStr)
 	}
 
 	stream.URL, err = decodeURL(stream.URL)
