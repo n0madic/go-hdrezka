@@ -11,9 +11,9 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-func downloadFile(url, output string) error {
+func downloadFile(url, output string, maxAttempt int) error {
 	var err error
-	for attempt := 1; attempt <= 3; attempt++ {
+	for attempt := 1; attempt <= maxAttempt; attempt++ {
 		err = attemptDownload(url, output)
 		if err == nil {
 			return nil

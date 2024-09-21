@@ -14,6 +14,7 @@ var args struct {
 	URL         string `arg:"positional,required" help:"url for download video"`
 	Output      string `arg:"positional" help:"output file or path for downloaded video"`
 	Info        bool   `arg:"-i" help:"show info about video only"`
+	MaxAttempt  int    `arg:"-m,--max-attempt" placeholder:"INT" default:"3" help:"max attempts for download file"`
 	Overwrite   bool   `arg:"-o" help:"overwrite output file if exists"`
 	Quality     string `arg:"-q,--quality" default:"1080p" help:"quality for download video"`
 	Season      int    `arg:"-s,--season" help:"season for download series"`
@@ -112,7 +113,7 @@ func main() {
 			fmt.Printf("ERROR %s: quality %s not found\n", output, args.Quality)
 			return
 		}
-		err = downloadFile(format.MP4, output)
+		err = downloadFile(format.MP4, output, args.MaxAttempt)
 		if err != nil {
 			fmt.Printf("ERROR %s: %s\n", output, err)
 			return
@@ -124,7 +125,7 @@ func main() {
 				return
 			}
 			outputSub := output[:strings.LastIndex(output, ".")] + ".vtt"
-			err = downloadFile(subtitle, outputSub)
+			err = downloadFile(subtitle, outputSub, args.MaxAttempt)
 			if err != nil {
 				fmt.Printf("ERROR %s: %s\n", outputSub, err)
 				return
