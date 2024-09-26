@@ -2,6 +2,7 @@ package hdrezka
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -66,11 +67,20 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 
 	restrictedMessage := strings.TrimSpace(doc.Find(".b-player__restricted__block_message").First().Contents().Not(".b-restricted__suggest").Text())
 	if restrictedMessage != "" {
-		return nil, fmt.Errorf(restrictedMessage)
+		return nil, errors.New(restrictedMessage)
+	}
+
+	title := doc.Find("head > title").Text()
+	if title == "Sign In" {
+		return nil, errors.New("sign in required")
 	}
 
 	video := &Video{}
 
+	video.ID = doc.Find(".b-userset__fav_holder").AttrOr("data-post_id", "")
+	if video.ID == "" {
+		return nil, errors.New("video ID not found")
+	}
 	video.Age = doc.Find("tr:contains('Возраст:')").Find("td").First().Next().Text()
 	doc.Find("span.person-name-item[itemprop=actor]").Each(func(i int, s *goquery.Selection) {
 		video.Cast = append(video.Cast, Person{
@@ -93,7 +103,6 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 			URL:  s.Find("a[itemprop=url]").AttrOr("href", ""),
 		})
 	})
-	video.ID = doc.Find(".b-userset__fav_holder").AttrOr("data-post_id", "")
 	video.Quality = doc.Find("tr:contains('В качестве:')").Find("td").First().Next().Text()
 	video.Rating = Rating{
 		Score: parseFloat(doc.Find("span[itemprop=rating] > span.num").Text()),
@@ -118,36 +127,36 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 	initCDNMatch := reTranslate.FindStringSubmatch(html)
 	if len(initCDNMatch) > 0 {
 		defaultTranslator = string(initCDNMatch[2])
-	}
-	var jsn struct {
-		Streams     string `json:"streams"`
-		Subtitle    any    `json:"subtitle"`
-		SubtitleDef any    `json:"subtitle_def"`
-		Thumbnails  string `json:"thumbnails"`
-	}
-	err = json.NewDecoder(strings.NewReader(initCDNMatch[3])).Decode(&jsn)
-	if err != nil {
-		return nil, err
-	}
-	thumbnails := r.URL.JoinPath(jsn.Thumbnails)
-	video.DefaultStream = &Stream{
-		URL:        jsn.Streams,
-		Thumbnails: thumbnails.String(),
-	}
-	if subtitleStr, ok := jsn.Subtitle.(string); ok && subtitleStr != "" {
-		video.DefaultStream.Subtitle = subtitleStr
-	}
-	if subtitleDefStr, ok := jsn.SubtitleDef.(string); ok && subtitleDefStr != "" {
-		video.DefaultStream.SubtitleDef = subtitleDefStr
-	}
-	if video.DefaultStream.Subtitle != nil {
-		video.DefaultStream.Subtitles = parseSubtitles(video.DefaultStream.Subtitle.(string))
-	}
-	video.DefaultStream.URL, err = decodeURL(video.DefaultStream.URL)
-	if err != nil {
-		return nil, err
-	} else {
-		video.DefaultStream.Formats = parseStreamFormats(video.DefaultStream.URL)
+		var jsn struct {
+			Streams     string `json:"streams"`
+			Subtitle    any    `json:"subtitle"`
+			SubtitleDef any    `json:"subtitle_def"`
+			Thumbnails  string `json:"thumbnails"`
+		}
+		err = json.NewDecoder(strings.NewReader(initCDNMatch[3])).Decode(&jsn)
+		if err != nil {
+			return nil, err
+		}
+		thumbnails := r.URL.JoinPath(jsn.Thumbnails)
+		video.DefaultStream = &Stream{
+			URL:        jsn.Streams,
+			Thumbnails: thumbnails.String(),
+		}
+		if subtitleStr, ok := jsn.Subtitle.(string); ok && subtitleStr != "" {
+			video.DefaultStream.Subtitle = subtitleStr
+		}
+		if subtitleDefStr, ok := jsn.SubtitleDef.(string); ok && subtitleDefStr != "" {
+			video.DefaultStream.SubtitleDef = subtitleDefStr
+		}
+		if video.DefaultStream.Subtitle != nil {
+			video.DefaultStream.Subtitles = parseSubtitles(video.DefaultStream.Subtitle.(string))
+		}
+		video.DefaultStream.URL, err = decodeURL(video.DefaultStream.URL)
+		if err != nil {
+			return nil, err
+		} else {
+			video.DefaultStream.Formats = parseStreamFormats(video.DefaultStream.URL)
+		}
 	}
 
 	// Get translators
