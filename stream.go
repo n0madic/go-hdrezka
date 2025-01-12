@@ -34,7 +34,7 @@ func (t *Translation) GetStream(season_episode ...int) (*Stream, error) {
 		}
 	}
 	var form url.Values
-	if season > 0 && episode > 0 {
+	if season > 0 {
 		form = url.Values{
 			"id":            {t.videoID},
 			"translator_id": {t.ID},

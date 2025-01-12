@@ -95,7 +95,7 @@ func main() {
 
 	downloadStream := func(season int, episode int) {
 		output := args.Output
-		if season > 0 && episode > 0 {
+		if season > 0 {
 			output = fmt.Sprintf("s%02de%02d %s", season, episode, output)
 		}
 		_, err := os.Stat(output)

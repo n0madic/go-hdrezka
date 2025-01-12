@@ -65,7 +65,7 @@ func (t *Translation) GetEpisodes() (Episodes, error) {
 			if url == "null" {
 				url = ""
 			}
-			if season > 0 && episode > 0 {
+			if season > 0 {
 				if episodes[season] == nil {
 					episodes[season] = make(map[int]*Stream)
 				}
