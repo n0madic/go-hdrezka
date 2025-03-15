@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/alexflint/go-arg"
@@ -21,6 +22,27 @@ var args struct {
 	Episodes    string `arg:"-e,--episodes" help:"range of episodes for download (required --season arg)"`
 	Translation string `arg:"-t,--translation" placeholder:"NAME" help:"translation for download video"`
 	Subtitle    string `arg:"-c,--subtitle" placeholder:"LANG" help:"get subtitle for downloaded video"`
+}
+
+func sanitizeFilename(filename string) string {
+	if runtime.GOOS == "windows" {
+		// Replace invalid characters for Windows filesystem with spaces
+		invalidChars := []string{"<", ">", ":", "\"", "/", "\\", "|", "?", "*"}
+		result := filename
+		for _, char := range invalidChars {
+			result = strings.ReplaceAll(result, char, " ")
+		}
+
+		// Clean up consecutive spaces
+		for strings.Contains(result, "  ") {
+			result = strings.ReplaceAll(result, "  ", " ")
+		}
+
+		// Trim spaces from beginning and end
+		result = strings.TrimSpace(result)
+		return result
+	}
+	return filename
 }
 
 func main() {
@@ -76,7 +98,7 @@ func main() {
 			title = video.TitleOriginal
 		}
 		title = strings.ReplaceAll(title, "/", "-")
-		args.Output = fmt.Sprintf("%s (%s).mp4", title, video.Year)
+		args.Output = sanitizeFilename(fmt.Sprintf("%s (%s).mp4", title, video.Year))
 	}
 
 	var translation *hdrezka.Translation
@@ -96,7 +118,7 @@ func main() {
 	downloadStream := func(season int, episode int) {
 		output := args.Output
 		if season > 0 {
-			output = fmt.Sprintf("s%02de%02d %s", season, episode, output)
+			output = sanitizeFilename(fmt.Sprintf("s%02de%02d %s", season, episode, output))
 		}
 		fileInfo, err := os.Stat(output)
 		if !args.Overwrite && err == nil && fileInfo.Size() > 0 {
