@@ -98,8 +98,8 @@ func main() {
 		if season > 0 {
 			output = fmt.Sprintf("s%02de%02d %s", season, episode, output)
 		}
-		_, err := os.Stat(output)
-		if !args.Overwrite && err == nil {
+		fileInfo, err := os.Stat(output)
+		if !args.Overwrite && err == nil && fileInfo.Size() > 0 {
 			fmt.Printf("File %s already exists, skipping\n", output)
 			return
 		}
