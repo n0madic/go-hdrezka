@@ -22,6 +22,8 @@ var args struct {
 	Episodes    string `arg:"-e,--episodes" help:"range of episodes for download (required --season arg)"`
 	Translation string `arg:"-t,--translation" placeholder:"NAME" help:"translation for download video"`
 	Subtitle    string `arg:"-c,--subtitle" placeholder:"LANG" help:"get subtitle for downloaded video"`
+	Resolver    string `arg:"-r,--resolver" placeholder:"IP" help:"DNS resolver for download video"`
+	Proxy       string `arg:"-p,--proxy" placeholder:"URL" help:"proxy for download video"`
 }
 
 func sanitizeFilename(filename string) string {

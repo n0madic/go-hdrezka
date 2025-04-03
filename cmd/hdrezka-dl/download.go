@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -45,7 +48,7 @@ func attemptDownload(url, output string) error {
 		return fmt.Errorf("error creating request: %w", err)
 	}
 
-	client := &http.Client{}
+	client := httpClient()
 	resp, err := client.Head(url)
 	if err != nil {
 		return fmt.Errorf("error making HEAD request: %w", err)
@@ -94,4 +97,44 @@ func attemptDownload(url, output string) error {
 	}
 
 	return file.Sync()
+}
+
+func httpClient() *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
+	if args.Resolver != "" {
+		dialer.Resolver = &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{
+					Timeout: time.Second * 10,
+				}
+				return d.DialContext(ctx, "udp", args.Resolver+":53")
+			},
+		}
+	}
+
+	transport := &http.Transport{
+		DialContext:           dialer.DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		Proxy:                 http.ProxyFromEnvironment,
+	}
+
+	if args.Proxy != "" {
+		proxyURL, err := url.Parse(args.Proxy)
+		if err == nil {
+			transport.Proxy = http.ProxyURL(proxyURL)
+		}
+	}
+
+	return &http.Client{
+		Transport: transport,
+	}
 }
