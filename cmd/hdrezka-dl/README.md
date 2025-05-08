@@ -11,7 +11,7 @@ go install github.com/n0madic/go-hdrezka/cmd/hdrezka-dl@latest
 ## Help
 
 ```
-Usage: hdrezka-dl [--info] [--max-attempt INT] [--overwrite] [--quality QUALITY] [--season SEASON] [--episodes EPISODES] [--translation NAME] [--subtitle LANG] [--resolver IP] [--proxy URL] URL [OUTPUT]
+Usage: hdrezka-dl [--info] [--max-attempt INT] [--overwrite] [--quality QUALITY] [--season SEASON] [--episodes EPISODES] [--translation NAME] [--subtitle LANG] [--resolver IP] [--proxy URL] [--hls] URL [OUTPUT]
 
 Positional arguments:
   URL                    url for download video
@@ -34,5 +34,6 @@ Options:
                          get subtitle for downloaded video
   --resolver IP, -r IP   DNS resolver for download video
   --proxy URL, -p URL    proxy for download video
+  --hls, -l              use HLS instead of MP4 for download video
   --help, -h             display this help and exit
 ```
