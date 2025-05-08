@@ -24,6 +24,7 @@ var args struct {
 	Subtitle    string `arg:"-c,--subtitle" placeholder:"LANG" help:"get subtitle for downloaded video"`
 	Resolver    string `arg:"-r,--resolver" placeholder:"IP" help:"DNS resolver for download video"`
 	Proxy       string `arg:"-p,--proxy" placeholder:"URL" help:"proxy for download video"`
+	UseHLS      bool   `arg:"-l,--hls" help:"use HLS instead of MP4 for download video"`
 }
 
 func sanitizeFilename(filename string) string {
@@ -100,7 +101,11 @@ func main() {
 			title = video.TitleOriginal
 		}
 		title = strings.ReplaceAll(title, "/", "-")
-		args.Output = sanitizeFilename(fmt.Sprintf("%s (%s).mp4", title, video.Year))
+		ext := ".mp4"
+		if args.UseHLS {
+			ext = ".ts"
+		}
+		args.Output = sanitizeFilename(fmt.Sprintf("%s (%s)%s", title, video.Year, ext))
 	}
 
 	var translation *hdrezka.Translation
@@ -137,11 +142,26 @@ func main() {
 			fmt.Printf("ERROR %s: quality %s not found\n", output, args.Quality)
 			return
 		}
-		err = downloadFile(format.MP4, output, args.MaxAttempt)
+
+		// Download using HLS or MP4 based on user choice
+		if args.UseHLS {
+			// Use HLS stream
+			if format.HLS == "" {
+				fmt.Printf("ERROR %s: HLS stream not available for quality %s\n", output, args.Quality)
+				return
+			}
+			err = downloadHLSPlaylist(format.HLS, output)
+		} else {
+			// Use MP4 stream
+			err = downloadFile(format.MP4, output, args.MaxAttempt)
+		}
+
 		if err != nil {
 			fmt.Printf("ERROR %s: %s\n", output, err)
 			return
 		}
+
+		// Download subtitles if requested
 		if args.Subtitle != "" {
 			subtitle, ok := stream.Subtitles[args.Subtitle]
 			if !ok {

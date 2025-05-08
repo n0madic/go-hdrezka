@@ -14,6 +14,42 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
+func downloadHLSPlaylist(playlistURL, output string) error {
+	fileInfo, err := os.Stat(output)
+	if err == nil && fileInfo.Size() > 0 {
+		if !args.Overwrite {
+			return nil // File already exists
+		}
+	}
+
+	bar := progressbar.NewOptions(
+		-1, // Unknown size initially
+		progressbar.OptionSetDescription("downloading HLS "+output),
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionShowCount(),
+		progressbar.OptionOnCompletion(func() {
+			fmt.Fprint(os.Stderr, "\n")
+		}),
+		progressbar.OptionFullWidth(),
+		progressbar.OptionSetRenderBlankState(true),
+	)
+
+	downloader := NewHLSDownloader(httpClient())
+	downloader.SetProgressCallback(func(info HLSProgressInfo) {
+		bar.Set(info.CurrentSegment)
+		if info.TotalSegments > 0 {
+			bar.ChangeMax(info.TotalSegments)
+		}
+	})
+
+	err = downloader.Download(playlistURL, output)
+	if err != nil {
+		return fmt.Errorf("error downloading HLS: %w", err)
+	}
+
+	return nil
+}
+
 func downloadFile(url, output string, maxAttempt int) error {
 	for attempt := 1; attempt <= maxAttempt; attempt++ {
 		err := attemptDownload(url, output)
