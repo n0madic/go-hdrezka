@@ -16,7 +16,7 @@ var args struct {
 	Output      string `arg:"positional" help:"output file or path for downloaded video"`
 	Info        bool   `arg:"-i" help:"show info about video only"`
 	MaxAttempt  int    `arg:"-m,--max-attempt" placeholder:"INT" default:"3" help:"max attempts for download file"`
-	Overwrite   bool   `arg:"-o" help:"overwrite output file if exists"`
+	Overwrite   bool   `arg:"-o,--overwrite" help:"overwrite output file if exists"`
 	Quality     string `arg:"-q,--quality" default:"1080p" help:"quality for download video"`
 	Season      int    `arg:"-s,--season" help:"season for download series"`
 	Episodes    string `arg:"-e,--episodes" help:"range of episodes for download (required --season arg)"`
