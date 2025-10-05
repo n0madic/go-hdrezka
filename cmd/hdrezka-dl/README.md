@@ -33,7 +33,7 @@ Options:
   --subtitle LANG, -c LANG
                          get subtitle for downloaded video
   --resolver IP, -r IP   DNS resolver for download video
-  --proxy URL, -p URL    proxy for download video
+  --proxy URL, -p URL    proxy for download video (supports HTTP, HTTPS, SOCKS5)
   --hls, -l              use HLS instead of MP4 for download video
   --help, -h             display this help and exit
 ```

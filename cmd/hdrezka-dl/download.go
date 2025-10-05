@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
+	"golang.org/x/net/proxy"
 )
 
 func downloadHLSPlaylist(playlistURL, output string) error {
@@ -166,7 +168,32 @@ func httpClient() *http.Client {
 	if args.Proxy != "" {
 		proxyURL, err := url.Parse(args.Proxy)
 		if err == nil {
-			transport.Proxy = http.ProxyURL(proxyURL)
+			scheme := strings.ToLower(proxyURL.Scheme)
+
+			// Handle SOCKS5 proxies
+			if scheme == "socks5" || scheme == "socks5h" {
+				var auth *proxy.Auth
+				if proxyURL.User != nil {
+					auth = &proxy.Auth{
+						User: proxyURL.User.Username(),
+					}
+					if password, ok := proxyURL.User.Password(); ok {
+						auth.Password = password
+					}
+				}
+
+				// Create SOCKS5 dialer
+				socksDialer, err := proxy.SOCKS5("tcp", proxyURL.Host, auth, dialer)
+				if err == nil {
+					// Use SOCKS5 dialer for all connections
+					transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+						return socksDialer.Dial(network, addr)
+					}
+				}
+			} else {
+				// Handle HTTP/HTTPS proxies
+				transport.Proxy = http.ProxyURL(proxyURL)
+			}
 		}
 	}
 
