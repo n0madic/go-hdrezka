@@ -14,6 +14,7 @@ import (
 var args struct {
 	URL         string `arg:"positional,required" help:"url for download video"`
 	Output      string `arg:"positional" help:"output file or path for downloaded video"`
+	BaseURL     string `arg:"-b,--base-url" placeholder:"URL" help:"base URL of hdrezka site (e.g., https://hdrezka.ag)"`
 	Info        bool   `arg:"-i" help:"show info about video only"`
 	MaxAttempt  int    `arg:"-m,--max-attempt" placeholder:"INT" default:"3" help:"max attempts for download file"`
 	Overwrite   bool   `arg:"-o,--overwrite" help:"overwrite output file if exists"`
@@ -62,12 +63,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	r, err := hdrezka.New(args.URL)
+	var r *hdrezka.HDRezka
+	if args.BaseURL != "" {
+		// Use provided base URL instead of extracting from video URL
+		r, err = hdrezka.New(args.BaseURL)
+	} else {
+		// Extract base URL from video URL (original behavior)
+		r, err = hdrezka.New(args.URL)
+	}
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(2)
 	}
 
+	// GetVideo will automatically normalize the URL to use r.URL
 	video, err := r.GetVideo(args.URL)
 	if err != nil {
 		fmt.Println(err)
