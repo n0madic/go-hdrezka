@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -60,7 +61,18 @@ type Video struct {
 
 // GetVideo returns video info from URL.
 func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
-	doc, err := getDoc(videoURL)
+	// Normalize video URL to use the base URL from this HDRezka instance
+	parsedURL, err := url.Parse(videoURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse video URL: %w", err)
+	}
+
+	// Replace scheme and host with the base URL's scheme and host
+	parsedURL.Scheme = r.URL.Scheme
+	parsedURL.Host = r.URL.Host
+	normalizedURL := parsedURL.String()
+
+	doc, err := getDoc(normalizedURL)
 	if err != nil {
 		return nil, err
 	}
