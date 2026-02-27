@@ -1,3 +1,5 @@
 *.html
 *.mp4
 test*
+CLAUDE.md
+.vscode/
