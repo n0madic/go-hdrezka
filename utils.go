@@ -12,12 +12,18 @@ import (
 )
 
 var (
-	reStreams   = regexp.MustCompile(`\[(.*?)\](.*?) [\w]+ (.*?)(,|$)`)
-	reTranslate = regexp.MustCompile(`initCDN(Series|Movies)Events\(\d+,\s(\d+),.+?(\{.*?\})\);`)
+	reQualityTag = regexp.MustCompile(`\[([^\]]+)\]`)
+	reTranslate  = regexp.MustCompile(`initCDN(Series|Movies)Events\(\d+,\s(\d+),.+?(\{.*?\})\);`)
 )
 
 func decodeURL(url string) (string, error) {
-	url = strings.TrimLeft(url, "#h")
+	// New format: URL is already in plain text (no base64 encoding)
+	if strings.HasPrefix(url, "[") || strings.HasPrefix(url, "http") {
+		return url, nil
+	}
+
+	// Old format: base64 encoded with obfuscation patterns
+	url = strings.TrimPrefix(url, "#h")
 	for i := 1; i <= 2; i++ {
 		url = strings.ReplaceAll(url, "//_//", "")
 		url = strings.ReplaceAll(url, "IyMjI14hISMjIUBA", "")
@@ -27,7 +33,11 @@ func decodeURL(url string) (string, error) {
 		url = strings.ReplaceAll(url, "Xl5eIUAjIyEhIyM=", "")
 	}
 	decoded, err := base64.StdEncoding.DecodeString(url)
-	return string(decoded), err
+	if err != nil {
+		// Fallback: if base64 decoding fails, return as-is
+		return url, nil
+	}
+	return string(decoded), nil
 }
 
 func getCategory(selector string, doc *goquery.Document) map[string]string {
@@ -103,14 +113,70 @@ func parseInt(str string) int {
 }
 
 func parseStreamFormats(str string) map[string]VideoFormat {
-	streams := reStreams.FindAllStringSubmatch(str, -1)
 	formats := make(map[string]VideoFormat)
-	for _, s := range streams {
-		formats[string(s[1])] = VideoFormat{
-			HLS: string(s[2]),
-			MP4: string(s[3]),
+
+	locs := reQualityTag.FindAllStringSubmatchIndex(str, -1)
+	for i, loc := range locs {
+		quality := str[loc[2]:loc[3]]
+
+		// Extract URL string between this tag and the next (or end of string)
+		start := loc[1]
+		end := len(str)
+		if i+1 < len(locs) {
+			end = locs[i+1][0]
+		}
+		urlStr := strings.TrimRight(strings.TrimSpace(str[start:end]), ",")
+
+		// Split alternatives separated by " or "
+		urls := strings.Split(urlStr, " or ")
+
+		var hls, mp4 string
+
+		// Check if any URL has :hls:manifest.m3u8 suffix (new format)
+		hasHLSSuffix := false
+		for _, u := range urls {
+			if strings.HasSuffix(strings.TrimSpace(u), ":hls:manifest.m3u8") {
+				hasHLSSuffix = true
+				break
+			}
+		}
+
+		if hasHLSSuffix {
+			// New format: classify by suffix
+			for _, u := range urls {
+				u = strings.TrimSpace(u)
+				if u == "" {
+					continue
+				}
+				if strings.HasSuffix(u, ":hls:manifest.m3u8") {
+					if hls == "" {
+						hls = u
+					}
+				} else if mp4 == "" {
+					mp4 = u
+				}
+			}
+			if hls != "" && mp4 == "" {
+				mp4 = strings.TrimSuffix(hls, ":hls:manifest.m3u8")
+			}
+		} else {
+			// Old format: first URL is HLS, second is MP4
+			if len(urls) >= 1 {
+				hls = strings.TrimSpace(urls[0])
+			}
+			if len(urls) >= 2 {
+				mp4 = strings.TrimSpace(urls[len(urls)-1])
+			} else {
+				mp4 = hls
+			}
+		}
+
+		formats[quality] = VideoFormat{
+			HLS: hls,
+			MP4: mp4,
 		}
 	}
+
 	return formats
 }
 
