@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/alexflint/go-arg"
@@ -19,8 +20,8 @@ var args struct {
 	MaxAttempt  int    `arg:"-m,--max-attempt" placeholder:"INT" default:"3" help:"max attempts for download file"`
 	Overwrite   bool   `arg:"-o,--overwrite" help:"overwrite output file if exists"`
 	Quality     string `arg:"-q,--quality" default:"1080p" help:"quality for download video"`
-	Season      int    `arg:"-s,--season" help:"season for download series"`
-	Episodes    string `arg:"-e,--episodes" help:"range of episodes for download (required --season arg)"`
+	Season      string `arg:"-s,--season" placeholder:"RANGE" help:"season or range of seasons to download (e.g. 1, 2-3, 1,3,5)"`
+	Episodes    string `arg:"-e,--episodes" placeholder:"RANGE" help:"range of episodes to download, requires single --season (e.g. 1, 3-5, 1,3,7-9)"`
 	Translation string `arg:"-t,--translation" placeholder:"NAME" help:"translation for download video"`
 	Subtitle    string `arg:"-c,--subtitle" placeholder:"LANG" help:"get subtitle for downloaded video"`
 	Resolver    string `arg:"-r,--resolver" placeholder:"IP" help:"DNS resolver for download video"`
@@ -52,9 +53,25 @@ func sanitizeFilename(filename string) string {
 func main() {
 	arg.MustParse(&args)
 
-	if args.Season == 0 && args.Episodes != "" {
+	if args.Season == "" && args.Episodes != "" {
 		fmt.Println("error: --season arg is required")
 		os.Exit(1)
+	}
+	if args.Season != "" && args.Episodes != "" {
+		if _, err := strconv.Atoi(args.Season); err != nil {
+			fmt.Println("error: --episodes cannot be combined with a season range")
+			os.Exit(1)
+		}
+	}
+
+	var seasonRange expandrange.Range
+	if args.Season != "" {
+		var parseErr error
+		seasonRange, parseErr = expandrange.Parse(args.Season)
+		if parseErr != nil {
+			fmt.Printf("error: invalid season range: %v\n", parseErr)
+			os.Exit(1)
+		}
 	}
 
 	epRange, err := expandrange.Parse(args.Episodes)
@@ -189,7 +206,7 @@ func main() {
 	episodes, err := translation.GetEpisodes()
 	if err == nil {
 		for _, season := range episodes.ListSeasons() {
-			if args.Season > 0 && season != args.Season {
+			if len(seasonRange) > 0 && !seasonRange.InRange(uint64(season)) {
 				continue
 			}
 			for _, episode := range episodes.ListEpisodes(season) {
