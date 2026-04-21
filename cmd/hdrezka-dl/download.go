@@ -87,18 +87,18 @@ func attemptDownload(url, output string) error {
 	}
 
 	client := httpClient()
-	resp, err := client.Head(url)
+	headResp, err := client.Head(url)
 	if err != nil {
 		return fmt.Errorf("error making HEAD request: %w", err)
 	}
-	resp.Body.Close()
+	headResp.Body.Close()
 
-	totalSize := resp.ContentLength
+	totalSize := headResp.ContentLength
 	if currentSize > 0 {
-		if totalSize == currentSize {
+		if totalSize > 0 && totalSize == currentSize {
 			return nil // File already completely downloaded
 		}
-		if resp.Header.Get("Accept-Ranges") == "bytes" && totalSize > currentSize {
+		if headResp.Header.Get("Accept-Ranges") == "bytes" && totalSize > currentSize {
 			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", currentSize))
 		} else {
 			if err := file.Truncate(0); err != nil {
@@ -111,7 +111,7 @@ func attemptDownload(url, output string) error {
 		}
 	}
 
-	resp, err = client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("error making GET request: %w", err)
 	}
@@ -121,10 +121,15 @@ func attemptDownload(url, output string) error {
 		return fmt.Errorf("HTTP request returned status: %s", resp.Status)
 	}
 
-	bar := progressbar.DefaultBytes(
-		totalSize,
-		"downloading "+output,
-	)
+	// Fallback to GET Content-Length if HEAD returned 0 (CDN servers often ignore HEAD)
+	if totalSize <= 0 {
+		totalSize = resp.ContentLength
+	}
+	if totalSize <= 0 {
+		totalSize = -1 // Unknown size — progressbar spinner mode
+	}
+
+	bar := progressbar.DefaultBytes(totalSize, "downloading "+output)
 	if currentSize > 0 {
 		bar.Add64(currentSize)
 	}
