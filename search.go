@@ -11,7 +11,7 @@ func (r *HDRezka) QuickSearch(query string) ([]*CoverItem, error) {
 	searchURL.RawQuery = q.Encode()
 
 	items := make([]*CoverItem, 0)
-	doc, err := getDoc(searchURL.String())
+	doc, err := r.getDoc(searchURL.String())
 	if err != nil {
 		return nil, err
 	}
@@ -41,5 +41,5 @@ func (r *HDRezka) Search(query string, maxItems int) ([]*CoverItem, error) {
 	q.Set("q", query)
 	searchURL.RawQuery = q.Encode()
 
-	return getItems(searchURL.String(), maxItems)
+	return r.getItems(searchURL.String(), maxItems)
 }

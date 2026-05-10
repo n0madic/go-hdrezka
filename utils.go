@@ -51,8 +51,14 @@ func getCategory(selector string, doc *goquery.Document) map[string]string {
 	return categories
 }
 
-func getDoc(uri string) (*goquery.Document, error) {
-	resp, err := http.Get(uri)
+func (r *HDRezka) getDoc(uri string) (*goquery.Document, error) {
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", defaultUserAgent)
+
+	resp, err := r.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -65,10 +71,10 @@ func getDoc(uri string) (*goquery.Document, error) {
 	return goquery.NewDocumentFromReader(resp.Body)
 }
 
-func getItems(url string, maxItems int) ([]*CoverItem, error) {
+func (r *HDRezka) getItems(url string, maxItems int) ([]*CoverItem, error) {
 	items := make([]*CoverItem, 0)
 	for {
-		doc, err := getDoc(url)
+		doc, err := r.getDoc(url)
 		if err != nil {
 			return nil, err
 		}

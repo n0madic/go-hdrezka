@@ -5,8 +5,8 @@ import (
 )
 
 func TestHDRezkaGetCoversURL(t *testing.T) {
-	r, err := New("https://hdrezka.ag")
-	if err != nil {
+	r := New().WithMirrors("https://hdrezka.ag")
+	if err := r.Init(); err != nil {
 		t.Fatal(err)
 	}
 	tests := []struct {

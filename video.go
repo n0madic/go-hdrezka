@@ -72,7 +72,7 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 	parsedURL.Host = r.URL.Host
 	normalizedURL := parsedURL.String()
 
-	doc, err := getDoc(normalizedURL)
+	doc, err := r.getDoc(normalizedURL)
 	if err != nil {
 		return nil, err
 	}

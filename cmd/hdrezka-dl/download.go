@@ -1,20 +1,20 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"math/rand"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/schollz/progressbar/v3"
-	"golang.org/x/net/proxy"
 )
+
+// siteClient is the shared HTTP client used for both site API requests and
+// stream/subtitle downloads. It points at hdrezka.HDRezka.Client so the same
+// cookie jar carries the authenticated session through every request.
+var siteClient *http.Client
 
 func downloadHLSPlaylist(playlistURL, output string) error {
 	fileInfo, err := os.Stat(output)
@@ -36,7 +36,7 @@ func downloadHLSPlaylist(playlistURL, output string) error {
 		progressbar.OptionSetRenderBlankState(true),
 	)
 
-	downloader := NewHLSDownloader(httpClient())
+	downloader := NewHLSDownloader(siteClient)
 	downloader.SetProgressCallback(func(info HLSProgressInfo) {
 		bar.Set(info.CurrentSegment)
 		if info.TotalSegments > 0 {
@@ -86,8 +86,7 @@ func attemptDownload(url, output string) error {
 		return fmt.Errorf("error creating request: %w", err)
 	}
 
-	client := httpClient()
-	headResp, err := client.Head(url)
+	headResp, err := siteClient.Head(url)
 	if err != nil {
 		return fmt.Errorf("error making HEAD request: %w", err)
 	}
@@ -111,7 +110,7 @@ func attemptDownload(url, output string) error {
 		}
 	}
 
-	resp, err := client.Do(req)
+	resp, err := siteClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("error making GET request: %w", err)
 	}
@@ -140,69 +139,4 @@ func attemptDownload(url, output string) error {
 	}
 
 	return file.Sync()
-}
-
-func httpClient() *http.Client {
-	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}
-
-	if args.Resolver != "" {
-		dialer.Resolver = &net.Resolver{
-			PreferGo: true,
-			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-				d := net.Dialer{
-					Timeout: time.Second * 10,
-				}
-				return d.DialContext(ctx, "udp", args.Resolver+":53")
-			},
-		}
-	}
-
-	transport := &http.Transport{
-		DialContext:           dialer.DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		Proxy:                 http.ProxyFromEnvironment,
-	}
-
-	if args.Proxy != "" {
-		proxyURL, err := url.Parse(args.Proxy)
-		if err == nil {
-			scheme := strings.ToLower(proxyURL.Scheme)
-
-			// Handle SOCKS5 proxies
-			if scheme == "socks5" || scheme == "socks5h" {
-				var auth *proxy.Auth
-				if proxyURL.User != nil {
-					auth = &proxy.Auth{
-						User: proxyURL.User.Username(),
-					}
-					if password, ok := proxyURL.User.Password(); ok {
-						auth.Password = password
-					}
-				}
-
-				// Create SOCKS5 dialer
-				socksDialer, err := proxy.SOCKS5("tcp", proxyURL.Host, auth, dialer)
-				if err == nil {
-					// Use SOCKS5 dialer for all connections
-					transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-						return socksDialer.Dial(network, addr)
-					}
-				}
-			} else {
-				// Handle HTTP/HTTPS proxies
-				transport.Proxy = http.ProxyURL(proxyURL)
-			}
-		}
-	}
-
-	return &http.Client{
-		Transport: transport,
-	}
 }

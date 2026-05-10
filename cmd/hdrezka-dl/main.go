@@ -27,6 +27,9 @@ var args struct {
 	Resolver    string `arg:"-r,--resolver" placeholder:"IP" help:"DNS resolver for download video"`
 	Proxy       string `arg:"-p,--proxy" placeholder:"URL" help:"proxy for download video"`
 	UseHLS      bool   `arg:"-l,--hls" help:"use HLS instead of MP4 for download video"`
+	Login       string `arg:"--login" placeholder:"NAME" help:"hdrezka account login (email or username), requires --password"`
+	Password    string `arg:"--password" placeholder:"PASS" help:"hdrezka account password, requires --login"`
+	Cookies     string `arg:"--cookies" placeholder:"STRING" help:"raw cookies string, e.g. \"dle_user_id=123;dle_password=abc\""`
 }
 
 func sanitizeFilename(filename string) string {
@@ -64,6 +67,15 @@ func main() {
 		}
 	}
 
+	if (args.Login != "") != (args.Password != "") {
+		fmt.Println("error: --login and --password must be used together")
+		os.Exit(1)
+	}
+	if args.Cookies != "" && (args.Login != "" || args.Password != "") {
+		fmt.Println("error: --cookies cannot be combined with --login/--password")
+		os.Exit(1)
+	}
+
 	var seasonRange expandrange.Range
 	if args.Season != "" {
 		var parseErr error
@@ -80,17 +92,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	var r *hdrezka.HDRezka
-	if args.BaseURL != "" {
-		// Use provided base URL instead of extracting from video URL
-		r, err = hdrezka.New(args.BaseURL)
-	} else {
-		// Extract base URL from video URL (original behavior)
-		r, err = hdrezka.New(args.URL)
+	mirror := args.BaseURL
+	if mirror == "" {
+		mirror = args.URL
 	}
-	if err != nil {
+	r := hdrezka.New().
+		WithMirrors(mirror).
+		WithProxy(args.Proxy).
+		WithResolver(args.Resolver)
+	if err := r.Init(); err != nil {
 		fmt.Println(err)
 		os.Exit(2)
+	}
+	siteClient = r.Client
+
+	switch {
+	case args.Cookies != "":
+		if err := r.SetCookies(args.Cookies); err != nil {
+			fmt.Println("error: failed to set cookies:", err)
+			os.Exit(2)
+		}
+	case args.Login != "":
+		if err := r.Login(args.Login, args.Password); err != nil {
+			fmt.Println("error:", err)
+			os.Exit(2)
+		}
 	}
 
 	// GetVideo will automatically normalize the URL to use r.URL

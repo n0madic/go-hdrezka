@@ -2,7 +2,6 @@ package hdrezka
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -111,7 +110,7 @@ func (r *HDRezka) GetCovers(opts CoverOption, maxItems int) ([]*CoverItem, error
 	if err != nil {
 		return nil, err
 	}
-	return getItems(uri, maxItems)
+	return r.getItems(uri, maxItems)
 }
 
 // GetCoversNewest returns newest video covers by genres.
@@ -129,7 +128,7 @@ func (r *HDRezka) GetCoversNewest(genre Genre) ([]*CoverItem, error) {
 	}
 
 	uri := r.URL.JoinPath("/engine/ajax/get_newest_slider_content.php").String()
-	resp, err := http.PostForm(uri, url.Values{"id": {id}})
+	resp, err := r.Client.PostForm(uri, url.Values{"id": {id}})
 	if err != nil {
 		return nil, err
 	}

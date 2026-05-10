@@ -21,8 +21,8 @@ import (
 )
 
 func main() {
-	r, err := hdrezka.New("https://hdrezka.ag", "https://rezka.ag")
-	if err != nil {
+	r := hdrezka.New().WithMirrors("https://hdrezka.ag", "https://rezka.ag")
+	if err := r.Init(); err != nil {
 		panic(err)
 	}
 	// Get list of the new popular series
@@ -59,6 +59,30 @@ func main() {
 	}
 }
 ```
+
+## Authentication
+
+Some content (1080p / 1080p Ultra quality, premium audio tracks, 18+ titles, parts of certain mirrors) is gated behind a registered account. Two ways to authenticate are supported:
+
+```go
+r := hdrezka.New().
+    WithMirrors("https://hdrezka.ag").
+    WithProxy("socks5://127.0.0.1:1080"). // optional
+    WithResolver("1.1.1.1")               // optional
+if err := r.Init(); err != nil {
+    panic(err)
+}
+
+// Option 1: log in with credentials. Cookies are stored in r.Client.Jar.
+if err := r.Login("user@example.com", "secret"); err != nil {
+    panic(err)
+}
+
+// Option 2: reuse cookies copied from the browser DevTools.
+// _ = r.SetCookies("dle_user_id=123;dle_password=<md5>")
+```
+
+Once authenticated, subsequent calls (`GetVideo`, `GetCovers`, `Translation.GetStream`, etc.) automatically carry the session cookies via `r.Client`.
 
 Fully functional examples can be found in the `cmd` folder:
 * [hdrezka-dl](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-dl) - utility that downloads videos from the HDrezka site

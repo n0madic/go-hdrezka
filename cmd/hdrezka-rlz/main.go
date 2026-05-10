@@ -33,8 +33,6 @@ type SearchCmd struct {
 	Quick bool   `arg:"-q"`
 }
 
-var mirrors = []string{"https://hdrezka.ag", "https://rezka.ag"}
-
 var args struct {
 	All            *DefaultCmd    `arg:"subcommand:all" help:"Show all releases"`
 	Best           *BestCmd       `arg:"subcommand:best" help:"Show best releases"`
@@ -54,12 +52,9 @@ var args struct {
 
 func main() {
 	arg.MustParse(&args)
-	if len(args.Mirrors) == 0 {
-		args.Mirrors = mirrors
-	}
 
-	r, err := hdrezka.New(args.Mirrors...)
-	if err != nil {
+	r := hdrezka.New().WithMirrors(args.Mirrors...)
+	if err := r.Init(); err != nil {
 		fmt.Printf("ERROR: %s\n", err)
 		os.Exit(1)
 	}
@@ -102,7 +97,10 @@ func main() {
 		opts.Year = args.Year.Year
 	}
 
-	var items []*hdrezka.CoverItem
+	var (
+		items []*hdrezka.CoverItem
+		err   error
+	)
 	if args.Newest != nil {
 		items, err = r.GetCoversNewest(args.Genre)
 	} else if args.Search != nil {

@@ -11,7 +11,7 @@ go install github.com/n0madic/go-hdrezka/cmd/hdrezka-dl@latest
 ## Help
 
 ```
-Usage: hdrezka-dl [--base-url URL] [--info] [--max-attempt INT] [--overwrite] [--quality QUALITY] [--season RANGE] [--episodes RANGE] [--translation NAME] [--subtitle LANG] [--resolver IP] [--proxy URL] [--hls] URL [OUTPUT]
+Usage: hdrezka-dl [--base-url URL] [--info] [--max-attempt INT] [--overwrite] [--quality QUALITY] [--season RANGE] [--episodes RANGE] [--translation NAME] [--subtitle LANG] [--resolver IP] [--proxy URL] [--hls] [--login NAME] [--password PASS] [--cookies STRING] URL [OUTPUT]
 
 Positional arguments:
   URL                    url for download video
@@ -37,5 +37,17 @@ Options:
   --resolver IP, -r IP   DNS resolver for download video
   --proxy URL, -p URL    proxy for download video (supports HTTP, HTTPS, SOCKS5)
   --hls, -l              use HLS instead of MP4 for download video
+  --login NAME           hdrezka account login (email or username), requires --password
+  --password PASS        hdrezka account password, requires --login
+  --cookies STRING       raw cookies string, e.g. "dle_user_id=123;dle_password=abc"
   --help, -h             display this help and exit
+```
+
+## Authentication
+
+1080p / 1080p Ultra quality, premium audio tracks and 18+ titles are gated behind a registered account. Pass either `--login`/`--password` (the tool will POST to `/ajax/login/`) or `--cookies` with a raw `dle_user_id=...;dle_password=...` string copied from the browser. The session cookies are reused for all metadata, AJAX and download requests.
+
+```sh
+hdrezka-dl --login user@example.com --password 'secret' -q 1080p https://hdrezka.ag/films/.../12345-foo.html
+hdrezka-dl --cookies "dle_user_id=123;dle_password=<md5>" -i https://hdrezka.ag/films/.../12345-foo.html
 ```
