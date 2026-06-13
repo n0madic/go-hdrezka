@@ -19,10 +19,13 @@ const defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 // related) are stored in r.Client.Jar and applied to all subsequent requests.
 func (r *HDRezka) Login(login, password string) error {
 	loginURL := r.URL.JoinPath("/ajax/login/").String()
+	// login_not_save=1 yields a session-only cookie (default, one-shot use);
+	// =0 asks for persistent dle_user_id / dle_password cookies when the caller
+	// opted into a persistent session via WithPersistentSession.
 	form := url.Values{
 		"login_name":     {login},
 		"login_password": {password},
-		"login_not_save": {"1"},
+		"login_not_save": {boolTo10(!r.persistSession)},
 		"login":          {"submit"},
 	}
 

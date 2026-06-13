@@ -43,9 +43,14 @@ func (t *Translation) GetStream(season_episode ...int) (*Stream, error) {
 			"action":        {"get_stream"},
 		}
 	} else {
+		// For movies the app (FilmModel.getStreamsByTranslationId) also passes
+		// the translation flags to get_movie so the CDN returns the matching stream.
 		form = url.Values{
 			"id":            {t.videoID},
 			"translator_id": {t.ID},
+			"is_camrip":     {boolTo10(t.IsCamRip)},
+			"is_ads":        {boolTo10(t.IsAds)},
+			"is_director":   {boolTo10(t.IsDirector)},
 			"action":        {"get_movie"},
 		}
 	}

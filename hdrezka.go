@@ -19,6 +19,17 @@ import (
 var defaultMirrors = []string{
 	"https://hdrezka.ag",
 	"https://rezka.ag",
+	"https://hdrzk.org",
+}
+
+// browserCookies mimic the cookies a real browser/session sends to HDrezka on
+// every page and AJAX request. The official app seeds the same set; without
+// them some endpoints behave differently for anonymous clients.
+var browserCookies = []*http.Cookie{
+	{Name: "allowed_comments", Value: "1", Path: "/"},
+	{Name: "_ym_isad", Value: "1", Path: "/"},
+	{Name: "_ym_visorc", Value: "b", Path: "/"},
+	{Name: "dle_newpm", Value: "0", Path: "/"},
 }
 
 // HDRezka is a struct for working with hdrezka site
@@ -33,10 +44,11 @@ type HDRezka struct {
 	// stores authentication cookies populated by Login or SetCookies.
 	Client *http.Client
 
-	mirrors      []string
-	proxyAddr    string
-	resolverAddr string
-	initialized  bool
+	mirrors        []string
+	proxyAddr      string
+	resolverAddr   string
+	persistSession bool
+	initialized    bool
 }
 
 func (r *HDRezka) getCDN(form url.Values, data interface{}) error {
@@ -76,6 +88,16 @@ func New() *HDRezka {
 func (r *HDRezka) WithMirrors(mirrors ...string) *HDRezka {
 	r.mirrors = mirrors
 	r.initialized = false
+	return r
+}
+
+// WithPersistentSession requests a persistent login: Login will ask the site
+// for long-lived dle_user_id / dle_password cookies (login_not_save=0) instead
+// of a session-only cookie. It only affects Login, so it does not invalidate
+// the cached transport / mirror state. Pair with ExportCookies to persist the
+// session across runs.
+func (r *HDRezka) WithPersistentSession() *HDRezka {
+	r.persistSession = true
 	return r
 }
 
@@ -120,6 +142,11 @@ func (r *HDRezka) Init() error {
 		return errors.New("no working mirrors found")
 	}
 
+	// Seed browser-like cookies for the active host. Auth cookies (PHPSESSID,
+	// dle_user_id, ...) use different names, so the jar merges both sets; CDN
+	// hosts differ, so the jar never leaks these to them.
+	r.Client.Jar.SetCookies(r.URL, browserCookies)
+
 	r.Categories[Films] = getCategory("li.b-topnav__item.i1 > div > div > ul.left > li", doc)
 	r.Categories[Series] = getCategory("li.b-topnav__item.i2 > div > div > ul.left > li", doc)
 	r.Categories[Cartoons] = getCategory("li.b-topnav__item.i3 > div > div > ul.left > li", doc)
@@ -136,4 +163,28 @@ func (r *HDRezka) Init() error {
 
 	r.initialized = true
 	return nil
+}
+
+// ExportCookies serializes the cookies the client currently holds for the
+// active site URL into a "name=value;name=value;..." string — the same format
+// SetCookies accepts. Use it to persist a logged-in session across runs.
+func (r *HDRezka) ExportCookies() string {
+	cookies := r.Client.Jar.Cookies(r.URL)
+	parts := make([]string, 0, len(cookies))
+	for _, c := range cookies {
+		parts = append(parts, c.Name+"="+c.Value)
+	}
+	return strings.Join(parts, ";")
+}
+
+// IsPremiumUser reports whether the currently authenticated session belongs to
+// a premium account. It fetches the site home page and inspects the body class
+// (mirrors UserModel.checkPremiumUser in the official app). Requires a prior
+// Login or SetCookies; an anonymous session returns false.
+func (r *HDRezka) IsPremiumUser() (bool, error) {
+	doc, err := r.getDoc(r.URL.String())
+	if err != nil {
+		return false, err
+	}
+	return doc.Find("body").HasClass("b-premium_user__body"), nil
 }

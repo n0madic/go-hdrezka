@@ -25,13 +25,15 @@ type Rating struct {
 
 // Translation is a struct for translator info
 type Translation struct {
-	r         *HDRezka
-	videoID   string
-	Name      string `json:"name"`
-	ID        string `json:"id"`
-	IsAds     bool   `json:"is_ads"`
-	IsCamRip  bool   `json:"is_camrip"`
-	IsDefault bool   `json:"is_default"`
+	r          *HDRezka
+	videoID    string
+	Name       string `json:"name"`
+	ID         string `json:"id"`
+	IsAds      bool   `json:"is_ads"`
+	IsCamRip   bool   `json:"is_camrip"`
+	IsDefault  bool   `json:"is_default"`
+	IsDirector bool   `json:"is_director"`
+	IsPremium  bool   `json:"is_premium"`
 }
 
 // Video is a struct for video info
@@ -178,12 +180,14 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 			ua = " UA"
 		}
 		translation := &Translation{
-			r:        r,
-			videoID:  video.ID,
-			Name:     strings.TrimSpace(s.Text()) + ua,
-			ID:       s.AttrOr("data-translator_id", ""),
-			IsAds:    s.AttrOr("data-ads", "") == "1",
-			IsCamRip: s.AttrOr("data-camrip", "") == "1",
+			r:          r,
+			videoID:    video.ID,
+			Name:       strings.TrimSpace(s.Text()) + ua,
+			ID:         s.AttrOr("data-translator_id", ""),
+			IsAds:      s.AttrOr("data-ads", "") == "1",
+			IsCamRip:   s.AttrOr("data-camrip", "") == "1",
+			IsDirector: s.AttrOr("data-director", "") == "1",
+			IsPremium:  s.HasClass("b-prem_translator"),
 		}
 		if translation.ID == defaultTranslator {
 			translation.IsDefault = true

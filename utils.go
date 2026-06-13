@@ -14,7 +14,19 @@ import (
 var (
 	reQualityTag = regexp.MustCompile(`\[([^\]]+)\]`)
 	reTranslate  = regexp.MustCompile(`initCDN(Series|Movies)Events\(\d+,\s(\d+),.+?(\{.*?\})\);`)
+
+	// knownSalts are the obfuscation patterns HDrezka inserts after each
+	// "//_//" marker in encoded stream URLs. They vary in length, so the
+	// decoder strips them by exact match rather than a fixed offset.
+	knownSalts = []string{
+		"IyMjI14hISMjIUBA", "QEBAQEAhIyMhXl5e",
+		"JCQhIUAkJEBeIUAjJCRA", "JCQjISFAIyFAIyM=", "Xl5eIUAjIyEhIyM=",
+	}
 )
+
+// saltFallbackLen is the number of characters the official app strips after a
+// "//_//" marker when it does not recognize the trailing salt (FilmModel.decodeUrl).
+const saltFallbackLen = 16
 
 func decodeURL(url string) (string, error) {
 	// New format: URL is already in plain text (no base64 encoding)
@@ -22,15 +34,29 @@ func decodeURL(url string) (string, error) {
 		return url, nil
 	}
 
-	// Old format: base64 encoded with obfuscation patterns
+	// Old format: base64 encoded with obfuscation patterns. For each "//_//"
+	// marker, strip a known salt of its exact length; if none matches, fall
+	// back to the app's behaviour of dropping the marker plus a fixed offset.
 	url = strings.TrimPrefix(url, "#h")
-	for i := 1; i <= 2; i++ {
-		url = strings.ReplaceAll(url, "//_//", "")
-		url = strings.ReplaceAll(url, "IyMjI14hISMjIUBA", "")
-		url = strings.ReplaceAll(url, "QEBAQEAhIyMhXl5e", "")
-		url = strings.ReplaceAll(url, "JCQhIUAkJEBeIUAjJCRA", "")
-		url = strings.ReplaceAll(url, "JCQjISFAIyFAIyM=", "")
-		url = strings.ReplaceAll(url, "Xl5eIUAjIyEhIyM=", "")
+	for i := 0; i < 60 && strings.Contains(url, "//_//"); i++ {
+		idx := strings.Index(url, "//_//")
+		after := url[idx+5:]
+		matched := false
+		for _, s := range knownSalts {
+			if strings.HasPrefix(after, s) {
+				url = url[:idx] + after[len(s):]
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			// Unknown salt: app-style fallback (drop "//_//" + fixed offset).
+			end := idx + 5 + saltFallbackLen
+			if end > len(url) {
+				end = len(url)
+			}
+			url = url[:idx] + url[end:]
+		}
 	}
 	decoded, err := base64.StdEncoding.DecodeString(url)
 	if err != nil {
@@ -38,6 +64,14 @@ func decodeURL(url string) (string, error) {
 		return url, nil
 	}
 	return string(decoded), nil
+}
+
+// boolTo10 maps a boolean to the "1"/"0" string flags HDrezka AJAX endpoints expect.
+func boolTo10(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
 }
 
 func getCategory(selector string, doc *goquery.Document) map[string]string {
@@ -197,6 +231,11 @@ func parseSubtitles(subs string) map[string]string {
 		value := entry[endBracket+1:]
 		key = strings.TrimSpace(key)
 		value = strings.TrimSpace(value)
+		// A subtitle entry may carry alternatives separated by " or "; the
+		// site/app uses the last one (consistent with parseStreamFormats).
+		if parts := strings.Split(value, " or "); len(parts) > 1 {
+			value = strings.TrimSpace(parts[len(parts)-1])
+		}
 		subtitles[key] = value
 	}
 	return subtitles
