@@ -84,6 +84,27 @@ if err := r.Login("user@example.com", "secret"); err != nil {
 
 Once authenticated, subsequent calls (`GetVideo`, `GetCovers`, `Translation.GetStream`, etc.) automatically carry the session cookies via `r.Client`.
 
+## Stream file size
+
+`Stream.Size` and `VideoFormat.Size` report the size in bytes of a media file by
+issuing an HTTP HEAD request, falling back to a ranged GET when the CDN ignores
+HEAD. Pass `r.Client` to reuse the authenticated session, or `nil` for
+`http.DefaultClient`. `FormatBytes` renders a byte count as a human-readable
+string (binary/1024-based units).
+
+```go
+stream, _ := video.Translation[0].GetStream()
+
+// Size of a specific quality; empty quality picks the highest available.
+size, err := stream.Size(r.Client, "1080p")
+if err == nil {
+    fmt.Println(hdrezka.FormatBytes(size)) // e.g. "2.1 GB"
+}
+
+// Or per-format:
+size, _ = stream.Formats["720p"].Size(r.Client)
+```
+
 Fully functional examples can be found in the `cmd` folder:
 * [hdrezka-dl](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-dl) - utility that downloads videos from the HDrezka site
 * [hdrezka-rlz](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-rlz) - utility for receiving and searching for releases (covers) from the site

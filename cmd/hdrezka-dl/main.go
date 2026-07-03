@@ -135,6 +135,18 @@ func main() {
 				for _, season := range episodes.ListSeasons() {
 					fmt.Printf("Season %d: %v\n", season, episodes.ListEpisodes(season))
 				}
+			} else {
+				// Movie: list available qualities with their file sizes.
+				if stream, err := translation.GetStream(); err == nil {
+					fmt.Println(translation.Name)
+					for quality, format := range stream.Formats {
+						if size, err := format.Size(r.Client); err == nil {
+							fmt.Printf("  %s: %s\n", quality, hdrezka.FormatBytes(size))
+						} else {
+							fmt.Printf("  %s\n", quality)
+						}
+					}
+				}
 			}
 		}
 		return
@@ -193,6 +205,12 @@ func main() {
 		if !ok {
 			fmt.Printf("ERROR %s: quality %s not found\n", output, args.Quality)
 			return
+		}
+
+		if !args.UseHLS {
+			if size, err := format.Size(r.Client); err == nil {
+				fmt.Printf("%s [%s]: %s\n", output, args.Quality, hdrezka.FormatBytes(size))
+			}
 		}
 
 		// Download using HLS or MP4 based on user choice

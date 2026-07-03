@@ -28,6 +28,25 @@ var (
 // "//_//" marker when it does not recognize the trailing salt (FilmModel.decodeUrl).
 const saltFallbackLen = 16
 
+// FormatBytes renders a byte count as a human-readable string using binary
+// (1024-based) units, e.g. 1536 -> "1.5 KB". Sizes <= 0 return "".
+func FormatBytes(bytes int64) string {
+	if bytes <= 0 {
+		return ""
+	}
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	units := []string{"KB", "MB", "GB", "TB", "PB", "EB"}
+	return fmt.Sprintf("%.1f %s", float64(bytes)/float64(div), units[exp])
+}
+
 func decodeURL(url string) (string, error) {
 	// New format: URL is already in plain text (no base64 encoding)
 	if strings.HasPrefix(url, "[") || strings.HasPrefix(url, "http") {

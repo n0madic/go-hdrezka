@@ -159,3 +159,73 @@ func TestBoolTo10(t *testing.T) {
 		t.Errorf("boolTo10(false) = %q, want %q", got, "0")
 	}
 }
+
+func TestFormatBytes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		bytes int64
+		want  string
+	}{
+		{"zero", 0, ""},
+		{"negative", -1, ""},
+		{"bytes", 512, "512 B"},
+		{"exact KB", 1024, "1.0 KB"},
+		{"KB", 1536, "1.5 KB"},
+		{"MB", 5 * 1024 * 1024, "5.0 MB"},
+		{"GB", 3*1024*1024*1024 + 512*1024*1024, "3.5 GB"},
+		{"TB", 2 * 1024 * 1024 * 1024 * 1024, "2.0 TB"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FormatBytes(tt.bytes); got != tt.want {
+				t.Errorf("FormatBytes(%d) = %q, want %q", tt.bytes, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStreamBestQuality(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		formats map[string]VideoFormat
+		want    string
+	}{
+		{
+			name:    "prefers highest known",
+			formats: map[string]VideoFormat{"480p": {}, "1080p": {}, "720p": {}},
+			want:    "1080p",
+		},
+		{
+			name:    "ultra over 1080p",
+			formats: map[string]VideoFormat{"1080p": {}, "1080p Ultra": {}},
+			want:    "1080p Ultra",
+		},
+		{
+			name:    "single",
+			formats: map[string]VideoFormat{"360p": {}},
+			want:    "360p",
+		},
+		{
+			name:    "unknown labels pick highest resolution",
+			formats: map[string]VideoFormat{"144p": {}, "240p": {}},
+			want:    "240p",
+		},
+		{
+			name:    "empty",
+			formats: map[string]VideoFormat{},
+			want:    "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Stream{Formats: tt.formats}
+			if got := s.bestQuality(); got != tt.want {
+				t.Errorf("bestQuality() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
