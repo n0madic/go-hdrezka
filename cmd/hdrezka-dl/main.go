@@ -30,6 +30,7 @@ var args struct {
 	Login       string `arg:"--login" placeholder:"NAME" help:"hdrezka account login (email or username), requires --password"`
 	Password    string `arg:"--password" placeholder:"PASS" help:"hdrezka account password, requires --login"`
 	Cookies     string `arg:"--cookies" placeholder:"STRING" help:"raw cookies string for auth or anti-bot clearance (Cloudflare/Anubis), e.g. \"dle_user_id=123;dle_password=abc\""`
+	NoSolver    bool   `arg:"--no-antibot-solver" help:"disable automatic solving of Anubis proof-of-work anti-bot challenges"`
 }
 
 func sanitizeFilename(filename string) string {
@@ -100,7 +101,8 @@ func main() {
 		WithMirrors(mirror).
 		WithProxy(args.Proxy).
 		WithResolver(args.Resolver).
-		WithCookies(args.Cookies)
+		WithCookies(args.Cookies).
+		WithAntiBotSolver(!args.NoSolver)
 	// Cookies are seeded before Init so they can carry an anti-bot clearance
 	// cookie needed to probe challenged mirrors.
 	if err := r.Init(); err != nil {

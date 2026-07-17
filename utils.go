@@ -110,6 +110,14 @@ func getCategory(selector string, doc *goquery.Document) map[string]string {
 }
 
 func (r *HDRezka) getDoc(uri string) (*goquery.Document, error) {
+	return r.getDocSolving(uri, r.solveAntiBot)
+}
+
+// getDocSolving fetches uri as a parsed document. When allowSolve is true and
+// the response is an Anubis proof-of-work interstitial, it solves the challenge
+// (which seeds the auth cookie into the jar) and retries once with solving
+// disabled to avoid loops.
+func (r *HDRezka) getDocSolving(uri string, allowSolve bool) (*goquery.Document, error) {
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {
 		return nil, err
@@ -131,6 +139,12 @@ func (r *HDRezka) getDoc(uri string) (*goquery.Document, error) {
 		return nil, err
 	}
 	if isChallengePage(doc) {
+		if allowSolve && isAnubisChallenge(doc) {
+			if err := r.solveAnubis(doc, resp.Request.URL); err != nil {
+				return nil, fmt.Errorf("failed to solve Anubis anti-bot challenge for %s: %w", uri, err)
+			}
+			return r.getDocSolving(uri, false)
+		}
 		return nil, fmt.Errorf("request to %s blocked by an anti-bot challenge (Cloudflare/DDoS-Guard/Anubis); this mirror needs a solved-challenge cookie from a browser (pass it via --cookies) or a different mirror", uri)
 	}
 	return doc, nil
@@ -173,12 +187,14 @@ func isChallengePage(doc *goquery.Document) bool {
 	if doc.Find(`script[src*="challenges.cloudflare.com"]`).Length() > 0 {
 		return true
 	}
-	// Anubis proof-of-work challenge (https://github.com/TecharoHQ/anubis):
-	// injects #anubis_challenge and loads assets from /.within.website/.
-	if doc.Find(`#anubis_challenge, script[src*=".within.website"], link[href*=".within.website"]`).Length() > 0 {
-		return true
-	}
-	return false
+	return isAnubisChallenge(doc)
+}
+
+// isAnubisChallenge reports whether doc is an Anubis proof-of-work interstitial
+// (https://github.com/TecharoHQ/anubis): it injects #anubis_challenge and loads
+// its assets from /.within.website/.
+func isAnubisChallenge(doc *goquery.Document) bool {
+	return doc.Find(`#anubis_challenge, script[src*=".within.website"], link[href*=".within.website"]`).Length() > 0
 }
 
 func (r *HDRezka) getItems(url string, maxItems int) ([]*CoverItem, error) {

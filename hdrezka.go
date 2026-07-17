@@ -52,6 +52,7 @@ type HDRezka struct {
 	resolverAddr   string
 	cookieStr      string
 	persistSession bool
+	solveAntiBot   bool
 	initialized    bool
 }
 
@@ -81,8 +82,9 @@ func (r *HDRezka) getCDN(form url.Values, data interface{}) error {
 func New() *HDRezka {
 	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	return &HDRezka{
-		Categories: make(map[Genre]map[string]string),
-		Client:     &http.Client{Jar: jar},
+		Categories:   make(map[Genre]map[string]string),
+		Client:       &http.Client{Jar: jar},
+		solveAntiBot: true,
 	}
 }
 
@@ -105,6 +107,14 @@ func (r *HDRezka) WithMirrors(mirrors ...string) *HDRezka {
 func (r *HDRezka) WithCookies(cookieStr string) *HDRezka {
 	r.cookieStr = cookieStr
 	r.initialized = false
+	return r
+}
+
+// WithAntiBotSolver toggles automatic solving of Anubis proof-of-work
+// interstitials during page fetches. It is enabled by default; disable it to
+// fail fast on challenged mirrors instead of spending CPU on the proof-of-work.
+func (r *HDRezka) WithAntiBotSolver(enabled bool) *HDRezka {
+	r.solveAntiBot = enabled
 	return r
 }
 

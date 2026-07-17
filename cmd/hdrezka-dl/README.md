@@ -11,7 +11,7 @@ go install github.com/n0madic/go-hdrezka/cmd/hdrezka-dl@latest
 ## Help
 
 ```
-Usage: hdrezka-dl [--base-url URL] [--info] [--max-attempt INT] [--overwrite] [--quality QUALITY] [--season RANGE] [--episodes RANGE] [--translation NAME] [--subtitle LANG] [--resolver IP] [--proxy URL] [--hls] [--login NAME] [--password PASS] [--cookies STRING] URL [OUTPUT]
+Usage: hdrezka-dl [--base-url URL] [--info] [--max-attempt INT] [--overwrite] [--quality QUALITY] [--season RANGE] [--episodes RANGE] [--translation NAME] [--subtitle LANG] [--resolver IP] [--proxy URL] [--hls] [--login NAME] [--password PASS] [--cookies STRING] [--no-antibot-solver] URL [OUTPUT]
 
 Positional arguments:
   URL                    url for download video
@@ -35,11 +35,12 @@ Options:
   --subtitle LANG, -c LANG
                          get subtitle for downloaded video
   --resolver IP, -r IP   DNS resolver for download video
-  --proxy URL, -p URL    proxy for download video (supports HTTP, HTTPS, SOCKS5)
+  --proxy URL, -p URL    proxy for download video
   --hls, -l              use HLS instead of MP4 for download video
   --login NAME           hdrezka account login (email or username), requires --password
   --password PASS        hdrezka account password, requires --login
-  --cookies STRING       raw cookies string, e.g. "dle_user_id=123;dle_password=abc"
+  --cookies STRING       raw cookies string for auth or anti-bot clearance (Cloudflare/Anubis), e.g. "dle_user_id=123;dle_password=abc"
+  --no-antibot-solver    disable automatic solving of Anubis proof-of-work anti-bot challenges
   --help, -h             display this help and exit
 ```
 
@@ -50,4 +51,12 @@ Options:
 ```sh
 hdrezka-dl --login user@example.com --password 'secret' -q 1080p https://hdrezka.ag/films/.../12345-foo.html
 hdrezka-dl --cookies "dle_user_id=123;dle_password=<md5>" -i https://hdrezka.ag/films/.../12345-foo.html
+```
+
+## Anti-bot challenges
+
+If a mirror serves an [Anubis](https://github.com/TecharoHQ/anubis) proof-of-work interstitial, `hdrezka-dl` solves it automatically and retries with the clearance cookie. Pass `--no-antibot-solver` to disable this and fail fast instead. Cloudflare / DDoS-Guard challenges cannot be solved headlessly — copy a solved-challenge cookie from the browser via `--cookies`, or use a different mirror with `--base-url`.
+
+```sh
+hdrezka-dl --cookies "cf_clearance=...;__ddg1=..." -i https://hdrezka.ag/films/.../12345-foo.html
 ```

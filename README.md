@@ -84,6 +84,23 @@ if err := r.Login("user@example.com", "secret"); err != nil {
 
 Once authenticated, subsequent calls (`GetVideo`, `GetCovers`, `Translation.GetStream`, etc.) automatically carry the session cookies via `r.Client`.
 
+## Anti-bot challenges
+
+Some mirrors sit behind an anti-bot interstitial. Two kinds are detected:
+
+* **Anubis** proof-of-work ([TecharoHQ/anubis](https://github.com/TecharoHQ/anubis)) — solved automatically. When a page returns an Anubis interstitial, the client computes the SHA-256 proof-of-work, submits it to the pass-challenge endpoint and retries the request with the clearance cookie now in `r.Client.Jar`. This is on by default; disable it with `WithAntiBotSolver(false)` to fail fast instead of spending CPU on the proof-of-work.
+* **Cloudflare / DDoS-Guard** — cannot be solved headlessly. Copy a solved-challenge cookie from a browser and seed it with `WithCookies` (before `Init`) or try a different mirror.
+
+```go
+r := hdrezka.New().
+    WithMirrors("https://hdrezka.ag").
+    WithAntiBotSolver(true).                 // default; solve Anubis automatically
+    WithCookies("cf_clearance=...;__ddg1=...") // browser cookie for Cloudflare/DDoS-Guard mirrors
+if err := r.Init(); err != nil {
+    panic(err)
+}
+```
+
 ## Stream file size
 
 `Stream.Size` and `VideoFormat.Size` report the size in bytes of a media file by
