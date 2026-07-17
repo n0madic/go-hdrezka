@@ -29,7 +29,7 @@ var args struct {
 	UseHLS      bool   `arg:"-l,--hls" help:"use HLS instead of MP4 for download video"`
 	Login       string `arg:"--login" placeholder:"NAME" help:"hdrezka account login (email or username), requires --password"`
 	Password    string `arg:"--password" placeholder:"PASS" help:"hdrezka account password, requires --login"`
-	Cookies     string `arg:"--cookies" placeholder:"STRING" help:"raw cookies string, e.g. \"dle_user_id=123;dle_password=abc\""`
+	Cookies     string `arg:"--cookies" placeholder:"STRING" help:"raw cookies string for auth or anti-bot clearance (Cloudflare/Anubis), e.g. \"dle_user_id=123;dle_password=abc\""`
 }
 
 func sanitizeFilename(filename string) string {
@@ -99,20 +99,17 @@ func main() {
 	r := hdrezka.New().
 		WithMirrors(mirror).
 		WithProxy(args.Proxy).
-		WithResolver(args.Resolver)
+		WithResolver(args.Resolver).
+		WithCookies(args.Cookies)
+	// Cookies are seeded before Init so they can carry an anti-bot clearance
+	// cookie needed to probe challenged mirrors.
 	if err := r.Init(); err != nil {
 		fmt.Println(err)
 		os.Exit(2)
 	}
 	siteClient = r.Client
 
-	switch {
-	case args.Cookies != "":
-		if err := r.SetCookies(args.Cookies); err != nil {
-			fmt.Println("error: failed to set cookies:", err)
-			os.Exit(2)
-		}
-	case args.Login != "":
+	if args.Login != "" {
 		if err := r.Login(args.Login, args.Password); err != nil {
 			fmt.Println("error:", err)
 			os.Exit(2)

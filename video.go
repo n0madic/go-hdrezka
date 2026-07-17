@@ -91,7 +91,9 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 
 	video := &Video{}
 
-	video.ID = doc.Find(".b-userset__fav_holder").AttrOr("data-post_id", "")
+	html, _ := doc.Html()
+
+	video.ID = extractVideoID(doc, html)
 	if video.ID == "" {
 		return nil, errors.New("video ID not found")
 	}
@@ -137,7 +139,6 @@ func (r *HDRezka) GetVideo(videoURL string) (*Video, error) {
 
 	// Get default stream
 	var defaultTranslator string
-	html, _ := doc.Html()
 	initCDNMatch := reTranslate.FindStringSubmatch(html)
 	if len(initCDNMatch) > 0 {
 		defaultTranslator = string(initCDNMatch[2])

@@ -15,6 +15,11 @@ var (
 	reQualityTag = regexp.MustCompile(`\[([^\]]+)\]`)
 	reTranslate  = regexp.MustCompile(`initCDN(Series|Movies)Events\(\d+,\s(\d+),.+?(\{.*?\})\);`)
 
+	// reInitCDNID captures the post id from the initCDN*Events(<id>, ...) call
+	// present on every video page. Used as a DOM-independent fallback for the
+	// video ID when the markup around the favorites holder changes.
+	reInitCDNID = regexp.MustCompile(`initCDN(?:Series|Movies)Events\((\d+),`)
+
 	// knownSalts are the obfuscation patterns HDrezka inserts after each
 	// "//_//" marker in encoded stream URLs. They vary in length, so the
 	// decoder strips them by exact match rather than a fixed offset.
@@ -121,7 +126,59 @@ func (r *HDRezka) getDoc(uri string) (*goquery.Document, error) {
 		return nil, fmt.Errorf("status code error: %d %s", resp.StatusCode, resp.Status)
 	}
 
-	return goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if isChallengePage(doc) {
+		return nil, fmt.Errorf("request to %s blocked by an anti-bot challenge (Cloudflare/DDoS-Guard/Anubis); this mirror needs a solved-challenge cookie from a browser (pass it via --cookies) or a different mirror", uri)
+	}
+	return doc, nil
+}
+
+// extractVideoID resolves the numeric post id of a video page from several
+// sources, in order of reliability, so that markup changes on a single element
+// do not break parsing. Every source requires the real page to have loaded; it
+// falls back to the id embedded in the page's initCDN*Events call.
+func extractVideoID(doc *goquery.Document, html string) string {
+	if id := doc.Find(".b-userset__fav_holder").AttrOr("data-post_id", ""); id != "" {
+		return id
+	}
+	if id := doc.Find("#post_id").AttrOr("value", ""); id != "" {
+		return id
+	}
+	// The main post container is rendered as <div class="b-post" id="post-1171">.
+	if postID := doc.Find(".b-post").AttrOr("id", ""); strings.HasPrefix(postID, "post-") {
+		if id := strings.TrimPrefix(postID, "post-"); id != "" {
+			return id
+		}
+	}
+	if m := reInitCDNID.FindStringSubmatch(html); len(m) > 1 {
+		return m[1]
+	}
+	return ""
+}
+
+// isChallengePage reports whether doc is an anti-bot interstitial rather than
+// real site content. It recognizes Cloudflare ("Just a moment..."), DDoS-Guard
+// and Anubis (proof-of-work, served from /.within.website/) challenges. Such
+// pages are frequently served with HTTP 200, so callers must inspect the body,
+// not only the status code.
+func isChallengePage(doc *goquery.Document) bool {
+	switch strings.TrimSpace(doc.Find("head > title").Text()) {
+	case "Just a moment...", "DDoS-Guard", "DDOS-GUARD":
+		return true
+	}
+	// Cloudflare Turnstile / managed challenge.
+	if doc.Find(`script[src*="challenges.cloudflare.com"]`).Length() > 0 {
+		return true
+	}
+	// Anubis proof-of-work challenge (https://github.com/TecharoHQ/anubis):
+	// injects #anubis_challenge and loads assets from /.within.website/.
+	if doc.Find(`#anubis_challenge, script[src*=".within.website"], link[href*=".within.website"]`).Length() > 0 {
+		return true
+	}
+	return false
 }
 
 func (r *HDRezka) getItems(url string, maxItems int) ([]*CoverItem, error) {

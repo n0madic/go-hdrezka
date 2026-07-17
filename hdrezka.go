@@ -4,6 +4,7 @@ package hdrezka
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -17,8 +18,10 @@ import (
 
 // defaultMirrors is used when WithMirrors has not been configured.
 var defaultMirrors = []string{
+	"https://hdrezka.co",
 	"https://hdrezka.ag",
 	"https://rezka.ag",
+	"https://rezka-ua.tv",
 	"https://hdrzk.org",
 }
 
@@ -47,6 +50,7 @@ type HDRezka struct {
 	mirrors        []string
 	proxyAddr      string
 	resolverAddr   string
+	cookieStr      string
 	persistSession bool
 	initialized    bool
 }
@@ -91,6 +95,19 @@ func (r *HDRezka) WithMirrors(mirrors ...string) *HDRezka {
 	return r
 }
 
+// WithCookies seeds a raw "name=value;name=value;..." cookie string into the
+// jar for every mirror host before Init probes it. Unlike SetCookies (which
+// runs after Init and needs an already-discovered host), these cookies are in
+// place during the initial probe, so they can carry an anti-bot clearance
+// cookie (e.g. Cloudflare cf_clearance or an Anubis auth cookie obtained from a
+// browser) needed to fetch challenged mirrors. Pair with a matching
+// User-Agent-provided session for the cookie to be accepted.
+func (r *HDRezka) WithCookies(cookieStr string) *HDRezka {
+	r.cookieStr = cookieStr
+	r.initialized = false
+	return r
+}
+
 // WithPersistentSession requests a persistent login: Login will ask the site
 // for long-lived dle_user_id / dle_password cookies (login_not_save=0) instead
 // of a session-only cookie. It only affects Login, so it does not invalidate
@@ -123,6 +140,7 @@ func (r *HDRezka) Init() error {
 	}
 
 	var doc *goquery.Document
+	var lastErr error
 	for _, mirror := range mirrors {
 		u, err := url.Parse(mirror)
 		if err != nil {
@@ -131,21 +149,31 @@ func (r *HDRezka) Init() error {
 		uri := u.ResolveReference(&url.URL{Path: "/"})
 		uri.Scheme = "https"
 		r.URL = uri
+		// Seed browser-like and user-supplied cookies before probing so an
+		// anti-bot clearance cookie (if provided via WithCookies) is present on
+		// the very first request to a challenged mirror.
+		r.Client.Jar.SetCookies(uri, browserCookies)
+		if r.cookieStr != "" {
+			cookies, cErr := parseCookieString(r.cookieStr, uri.Hostname())
+			if cErr != nil {
+				return cErr
+			}
+			r.Client.Jar.SetCookies(uri, cookies)
+		}
 		doc, err = r.getDoc(uri.String())
 		if err == nil {
 			break
 		}
+		lastErr = err
 		r.URL = nil
 	}
 
 	if r.URL == nil {
+		if lastErr != nil {
+			return fmt.Errorf("no working mirrors found: %w", lastErr)
+		}
 		return errors.New("no working mirrors found")
 	}
-
-	// Seed browser-like cookies for the active host. Auth cookies (PHPSESSID,
-	// dle_user_id, ...) use different names, so the jar merges both sets; CDN
-	// hosts differ, so the jar never leaks these to them.
-	r.Client.Jar.SetCookies(r.URL, browserCookies)
 
 	r.Categories[Films] = getCategory("li.b-topnav__item.i1 > div > div > ul.left > li", doc)
 	r.Categories[Series] = getCategory("li.b-topnav__item.i2 > div > div > ul.left > li", doc)
