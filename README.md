@@ -125,3 +125,4 @@ size, _ = stream.Formats["720p"].Size(r.Client)
 Fully functional examples can be found in the `cmd` folder:
 * [hdrezka-dl](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-dl) - utility that downloads videos from the HDrezka site
 * [hdrezka-rlz](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-rlz) - utility for receiving and searching for releases (covers) from the site
+* [hdrezka-msx](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-msx) - HTTP server that serves an [Media Station X](https://msx.benzac.de) portal for watching HDrezka on a TV
