@@ -127,6 +127,17 @@ func main() {
 
 	fmt.Println(video)
 	if args.Info {
+		// Only meaningful for an authenticated session: an anonymous one is
+		// never premium, and the check costs an extra page fetch.
+		if args.Login != "" || args.Cookies != "" {
+			status := "no"
+			if premium, err := r.IsPremiumUser(); err != nil {
+				status = fmt.Sprintf("unknown (%s)", err)
+			} else if premium {
+				status = "yes"
+			}
+			fmt.Printf("Premium account:\t%s\n\n", status)
+		}
 		for _, translation := range video.Translation {
 			episodes, err := translation.GetEpisodes()
 			if err == nil {
