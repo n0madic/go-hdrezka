@@ -122,6 +122,23 @@ if err == nil {
 size, _ = stream.Formats["720p"].Size(r.Client)
 ```
 
+## Premium qualities
+
+Qualities available only with a subscription (currently `1080p Ultra`) are
+marked on the site with a premium badge. Without a premium account the CDN
+serves a short teaser file for them instead of the movie, so `VideoFormat`
+reports them via `IsPremium` and `Stream.Size(client, "")` skips them while any
+regular quality exists. Signing in with a premium account makes the very same
+quality a normal format (`IsPremium` is false) with the real file behind it.
+
+```go
+// Qualities are ordered from best to worst.
+for _, quality := range stream.Qualities() {
+    format := stream.Formats[quality]
+    fmt.Println(quality, format.IsPremium)
+}
+```
+
 Fully functional examples can be found in the `cmd` folder:
 * [hdrezka-dl](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-dl) - utility that downloads videos from the HDrezka site
 * [hdrezka-rlz](https://github.com/n0madic/go-hdrezka/tree/master/cmd/hdrezka-rlz) - utility for receiving and searching for releases (covers) from the site

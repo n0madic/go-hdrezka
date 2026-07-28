@@ -2,6 +2,7 @@ package hdrezka
 
 import (
 	"encoding/base64"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -186,6 +187,99 @@ func TestFormatBytes(t *testing.T) {
 	}
 }
 
+func TestParseQualityLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		raw         string
+		want        string
+		wantPremium bool
+	}{
+		{name: "plain", raw: "1080p", want: "1080p"},
+		{name: "plain ultra", raw: "1080p Ultra", want: "1080p Ultra"},
+		{
+			name:        "premium markup",
+			raw:         `<span class="pjs-prem-quality">1080p Ultra<img src="https://static.hdrezka.ac/templates/hdrezka/images/prem-icon.svg" alt=""></span>`,
+			want:        "1080p Ultra",
+			wantPremium: true,
+		},
+		{
+			name:        "entities and extra spacing",
+			raw:         "<span class=\"pjs-prem-quality\">1080p&nbsp; Ultra\n</span>",
+			want:        "1080p Ultra",
+			wantPremium: true,
+		},
+		{name: "markup without text keeps the raw tag", raw: "<span></span>", want: "<span></span>"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, premium := parseQualityLabel(tt.raw)
+			if got != tt.want {
+				t.Errorf("label = %q, want %q", got, tt.want)
+			}
+			if premium != tt.wantPremium {
+				t.Errorf("premium = %v, want %v", premium, tt.wantPremium)
+			}
+		})
+	}
+}
+
+// TestParseStreamFormatsPremium checks the markup HDrezka serves to accounts
+// without a subscription: the quality tag carries a span with the premium badge
+// instead of a bare label.
+func TestParseStreamFormatsPremium(t *testing.T) {
+	t.Parallel()
+
+	const premiumTag = `<span class="pjs-prem-quality">1080p Ultra<img src="https://static.hdrezka.ac/templates/hdrezka/images/prem-icon.svg" alt=""></span>`
+	formats := parseStreamFormats("[1080p]https://cdn.test/a.mp4:hls:manifest.m3u8 or https://cdn.test/a.mp4,[" +
+		premiumTag + "]https://cdn.test/b.mp4:hls:manifest.m3u8 or https://cdn.test/b.mp4")
+
+	if len(formats) != 2 {
+		t.Fatalf("parseStreamFormats = %+v, want 2 formats", formats)
+	}
+	regular, ok := formats["1080p"]
+	if !ok {
+		t.Fatalf("missing quality %q in %+v", "1080p", formats)
+	}
+	if regular.IsPremium {
+		t.Error("1080p reported as premium")
+	}
+	ultra, ok := formats["1080p Ultra"]
+	if !ok {
+		t.Fatalf("missing quality %q in %+v", "1080p Ultra", formats)
+	}
+	if !ultra.IsPremium {
+		t.Error("1080p Ultra not reported as premium")
+	}
+	if ultra.HLS != "https://cdn.test/b.mp4:hls:manifest.m3u8" || ultra.MP4 != "https://cdn.test/b.mp4" {
+		t.Errorf("1080p Ultra = %+v, want the b.mp4 URLs", ultra)
+	}
+}
+
+func TestStreamQualities(t *testing.T) {
+	t.Parallel()
+
+	stream := &Stream{Formats: map[string]VideoFormat{
+		"480p":        {},
+		"1080p Ultra": {IsPremium: true},
+		"1080p":       {},
+		"2160p":       {},
+		"720p":        {},
+		"origin":      {},
+	}}
+	want := []string{"2160p", "1080p Ultra", "1080p", "720p", "480p", "origin"}
+	if got := stream.Qualities(); !slices.Equal(got, want) {
+		t.Errorf("Qualities() = %v, want %v", got, want)
+	}
+	if got := (&Stream{}).Qualities(); len(got) != 0 {
+		t.Errorf("Qualities() on empty stream = %v, want empty", got)
+	}
+}
+
 func TestStreamBestQuality(t *testing.T) {
 	t.Parallel()
 
@@ -202,6 +296,16 @@ func TestStreamBestQuality(t *testing.T) {
 		{
 			name:    "ultra over 1080p",
 			formats: map[string]VideoFormat{"1080p": {}, "1080p Ultra": {}},
+			want:    "1080p Ultra",
+		},
+		{
+			name:    "premium ultra skipped while a regular format exists",
+			formats: map[string]VideoFormat{"1080p": {}, "1080p Ultra": {IsPremium: true}},
+			want:    "1080p",
+		},
+		{
+			name:    "premium used when nothing else is available",
+			formats: map[string]VideoFormat{"1080p Ultra": {IsPremium: true}},
 			want:    "1080p Ultra",
 		},
 		{

@@ -1,9 +1,11 @@
 package hdrezka
 
 import (
+	"cmp"
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -12,6 +14,11 @@ import (
 type VideoFormat struct {
 	HLS string `json:"hls"`
 	MP4 string `json:"mp4"`
+	// IsPremium marks a quality the current account cannot play: HDrezka
+	// labels it with the premium badge and the CDN serves a short teaser
+	// file instead of the movie. A premium account gets the same quality
+	// without the badge, so the flag stays false there.
+	IsPremium bool `json:"is_premium"`
 }
 
 // Stream is a struct for stream info
@@ -169,23 +176,58 @@ func (s *Stream) Size(client *http.Client, quality string) (int64, error) {
 var qualityOrder = []string{"2160p", "1080p Ultra", "1080p", "720p", "480p", "360p"}
 
 // bestQuality returns the highest-ranked quality label present in the stream.
-// Known labels (see qualityOrder) win first; for any unknown labels it falls
-// back to the largest parsed vertical resolution, breaking ties by label so the
-// result never depends on map iteration order.
+// Formats flagged as premium are skipped while any regular format exists — the
+// CDN serves a teaser file for them unless the account has a subscription (see
+// VideoFormat.IsPremium).
 func (s *Stream) bestQuality() string {
+	if q := bestQualityOf(s.Formats, false); q != "" {
+		return q
+	}
+	return bestQualityOf(s.Formats, true)
+}
+
+// bestQualityOf picks the highest-ranked label among the formats. Known labels
+// (see qualityOrder) win first; for any unknown labels it falls back to the
+// largest parsed vertical resolution, breaking ties by label so the result
+// never depends on map iteration order.
+func bestQualityOf(formats map[string]VideoFormat, withPremium bool) string {
+	eligible := func(quality string) bool {
+		format, ok := formats[quality]
+		return ok && (withPremium || !format.IsPremium)
+	}
 	for _, q := range qualityOrder {
-		if _, ok := s.Formats[q]; ok {
+		if eligible(q) {
 			return q
 		}
 	}
 	best, bestRes := "", -1
-	for q := range s.Formats {
+	for q := range formats {
+		if !eligible(q) {
+			continue
+		}
 		res := parseResolution(q)
 		if res > bestRes || (res == bestRes && q > best) {
 			best, bestRes = q, res
 		}
 	}
 	return best
+}
+
+// Qualities returns the stream's quality labels ordered from best to worst:
+// by vertical resolution, premium variants of the same resolution first
+// ("1080p Ultra" before "1080p"), labels without a resolution last.
+func (s *Stream) Qualities() []string {
+	qualities := make([]string, 0, len(s.Formats))
+	for q := range s.Formats {
+		qualities = append(qualities, q)
+	}
+	slices.SortFunc(qualities, func(a, b string) int {
+		if c := cmp.Compare(parseResolution(b), parseResolution(a)); c != 0 {
+			return c
+		}
+		return cmp.Compare(b, a)
+	})
+	return qualities
 }
 
 // parseResolution extracts the leading vertical resolution from a quality label

@@ -3,6 +3,7 @@ package hdrezka
 import (
 	"encoding/base64"
 	"fmt"
+	"html"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -14,6 +15,10 @@ import (
 var (
 	reQualityTag = regexp.MustCompile(`\[([^\]]+)\]`)
 	reTranslate  = regexp.MustCompile(`initCDN(Series|Movies)Events\(\d+,\s(\d+),.+?(\{.*?\})\);`)
+
+	// reHTMLTag matches the markup HDrezka wraps premium quality labels in,
+	// e.g. `[<span class="pjs-prem-quality">1080p Ultra<img src="…/prem-icon.svg" alt=""></span>]`.
+	reHTMLTag = regexp.MustCompile(`<[^>]*>`)
 
 	// reInitCDNID captures the post id from the initCDN*Events(<id>, ...) call
 	// present on every video page. Used as a DOM-independent fallback for the
@@ -244,12 +249,28 @@ func parseInt(str string) int {
 	return i
 }
 
+// parseQualityLabel turns a raw quality tag from the stream string into plain
+// text and reports whether the format is premium-only. HDrezka wraps such
+// qualities in markup instead of a bare label (`<span class="pjs-prem-quality">
+// 1080p Ultra<img src="…/prem-icon.svg" alt=""></span>`) for accounts without a
+// subscription — those get a short teaser file instead of the movie. A premium
+// account receives the very same quality as a plain "1080p Ultra" label.
+func parseQualityLabel(raw string) (string, bool) {
+	premium := strings.Contains(raw, "prem-quality") || strings.Contains(raw, "prem-icon")
+	label := strings.Join(strings.Fields(html.UnescapeString(reHTMLTag.ReplaceAllString(raw, ""))), " ")
+	if label == "" {
+		// Markup without any text: keep the raw tag so the format stays addressable.
+		return strings.TrimSpace(raw), premium
+	}
+	return label, premium
+}
+
 func parseStreamFormats(str string) map[string]VideoFormat {
 	formats := make(map[string]VideoFormat)
 
 	locs := reQualityTag.FindAllStringSubmatchIndex(str, -1)
 	for i, loc := range locs {
-		quality := str[loc[2]:loc[3]]
+		quality, premium := parseQualityLabel(str[loc[2]:loc[3]])
 
 		// Extract URL string between this tag and the next (or end of string)
 		start := loc[1]
@@ -304,8 +325,9 @@ func parseStreamFormats(str string) map[string]VideoFormat {
 		}
 
 		formats[quality] = VideoFormat{
-			HLS: hls,
-			MP4: mp4,
+			HLS:       hls,
+			MP4:       mp4,
+			IsPremium: premium,
 		}
 	}
 

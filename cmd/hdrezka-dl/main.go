@@ -138,11 +138,16 @@ func main() {
 				// Movie: list available qualities with their file sizes.
 				if stream, err := translation.GetStream(); err == nil {
 					fmt.Println(translation.Name)
-					for quality, format := range stream.Formats {
+					for _, quality := range stream.Qualities() {
+						format := stream.Formats[quality]
+						label := quality
+						if format.IsPremium {
+							label += " (premium)"
+						}
 						if size, err := format.Size(r.Client); err == nil {
-							fmt.Printf("  %s: %s\n", quality, hdrezka.FormatBytes(size))
+							fmt.Printf("  %s: %s\n", label, hdrezka.FormatBytes(size))
 						} else {
-							fmt.Printf("  %s\n", quality)
+							fmt.Printf("  %s\n", label)
 						}
 					}
 				}
@@ -202,8 +207,13 @@ func main() {
 		}
 		format, ok := stream.Formats[args.Quality]
 		if !ok {
-			fmt.Printf("ERROR %s: quality %s not found\n", output, args.Quality)
+			fmt.Printf("ERROR %s: quality %s not found (available: %s)\n",
+				output, args.Quality, strings.Join(stream.Qualities(), ", "))
 			return
+		}
+		if format.IsPremium {
+			fmt.Printf("WARNING %s: quality %s requires a premium subscription, the download will be a teaser file\n",
+				output, args.Quality)
 		}
 
 		if !args.UseHLS {

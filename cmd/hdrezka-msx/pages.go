@@ -2,12 +2,8 @@ package main
 
 import (
 	"fmt"
-	"html"
 	"net/http"
 	"net/url"
-	"regexp"
-	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -752,7 +748,7 @@ func (s *server) renderStream(w http.ResponseWriter, base string, nav navParams,
 		return
 	}
 
-	qualities := sortQualities(stream.Formats)
+	qualities := stream.Qualities()
 	sizes := s.formatSizes(stream, qualities)
 
 	items := make([]Item, 0, len(qualities))
@@ -763,7 +759,7 @@ func (s *server) renderStream(w http.ResponseWriter, base string, nav navParams,
 		}
 		action, props := videoAction(base, mediaURL, stream.Subtitles)
 		items = append(items, Item{
-			Title:       joinParts(qualityTitle(quality), qualityLabel(quality), sizes[quality]),
+			Title:       joinParts(quality, qualityLabel(stream.Formats[quality]), sizes[quality]),
 			PlayerLabel: playerLabel,
 			Action:      action,
 			Properties:  props,
@@ -849,50 +845,10 @@ func isHLS(mediaURL string) bool {
 	return strings.HasSuffix(mediaURL, ".m3u8")
 }
 
-// reHTMLTag matches the markup HDrezka wraps premium quality labels in
-// (e.g. `<span class="pjs-prem-quality">1080p Ultra<img …></span>`).
-var reHTMLTag = regexp.MustCompile(`<[^>]*>`)
-
-// qualityTitle turns a raw quality label into plain text fit for the screen.
-func qualityTitle(quality string) string {
-	return strings.TrimSpace(html.UnescapeString(reHTMLTag.ReplaceAllString(quality, "")))
-}
-
 // qualityLabel marks the qualities only a premium account can play.
-func qualityLabel(quality string) string {
-	if strings.Contains(quality, "prem-quality") {
+func qualityLabel(format hdrezka.VideoFormat) string {
+	if format.IsPremium {
 		return "премиум"
 	}
 	return ""
-}
-
-// sortQualities orders quality labels from the highest resolution down so the
-// best stream is the first item on the page.
-func sortQualities(formats map[string]hdrezka.VideoFormat) []string {
-	qualities := sortedKeys(formats)
-	sort.SliceStable(qualities, func(i, j int) bool {
-		ri, rj := qualityResolution(qualityTitle(qualities[i])), qualityResolution(qualityTitle(qualities[j]))
-		if ri != rj {
-			return ri > rj
-		}
-		return qualities[i] > qualities[j]
-	})
-	return qualities
-}
-
-// qualityResolution extracts the vertical resolution of a quality label
-// ("1080p Ultra" -> 1080). Labels without a leading number sort last.
-func qualityResolution(quality string) int {
-	digits := 0
-	for digits < len(quality) && quality[digits] >= '0' && quality[digits] <= '9' {
-		digits++
-	}
-	if digits == 0 {
-		return -1
-	}
-	value, err := strconv.Atoi(quality[:digits])
-	if err != nil {
-		return -1
-	}
-	return value
 }

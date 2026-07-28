@@ -274,24 +274,6 @@ func TestParseNavErrors(t *testing.T) {
 	}
 }
 
-func TestSortQualities(t *testing.T) {
-	t.Parallel()
-
-	const premium = `<span class="pjs-prem-quality">1080p Ultra<img src="/prem.svg" alt=""></span>`
-	formats := map[string]hdrezka.VideoFormat{
-		"480p":   {},
-		premium:  {},
-		"1080p":  {},
-		"2160p":  {},
-		"720p":   {},
-		"origin": {},
-	}
-	want := []string{"2160p", premium, "1080p", "720p", "480p", "origin"}
-	if got := sortQualities(formats); !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
-
 func TestVideoFacts(t *testing.T) {
 	t.Parallel()
 
@@ -392,31 +374,24 @@ func TestStreamURL(t *testing.T) {
 	}
 }
 
-func TestQualityTitleAndLabel(t *testing.T) {
+func TestQualityLabel(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		quality   string
-		wantTitle string
-		wantLabel string
+		name   string
+		format hdrezka.VideoFormat
+		want   string
 	}{
-		{quality: "1080p", wantTitle: "1080p"},
-		{
-			quality:   `<span class="pjs-prem-quality">1080p Ultra<img src="/prem.svg" alt=""></span>`,
-			wantTitle: "1080p Ultra",
-			wantLabel: "премиум",
-		},
+		{name: "regular", format: hdrezka.VideoFormat{}},
+		{name: "premium", format: hdrezka.VideoFormat{IsPremium: true}, want: "премиум"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.wantTitle, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := qualityTitle(tt.quality); got != tt.wantTitle {
-				t.Errorf("title = %q, want %q", got, tt.wantTitle)
-			}
-			if got := qualityLabel(tt.quality); got != tt.wantLabel {
-				t.Errorf("label = %q, want %q", got, tt.wantLabel)
+			if got := qualityLabel(tt.format); got != tt.want {
+				t.Errorf("label = %q, want %q", got, tt.want)
 			}
 		})
 	}
