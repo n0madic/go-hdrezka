@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
+	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -31,6 +34,29 @@ var args struct {
 	Password    string `arg:"--password" placeholder:"PASS" help:"hdrezka account password, requires --login"`
 	Cookies     string `arg:"--cookies" placeholder:"STRING" help:"raw cookies string for auth or anti-bot clearance (Cloudflare/Anubis), e.g. \"dle_user_id=123;dle_password=abc\""`
 	NoSolver    bool   `arg:"--no-antibot-solver" help:"disable automatic solving of Anubis proof-of-work anti-bot challenges"`
+}
+
+// fileExists reports whether path is an existing non-empty file.
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.Size() > 0
+}
+
+// subtitleOutput derives the subtitle file name from the video file name and
+// the subtitle language, e.g. "Old (2021).mp4" + "Русский" -> "Old (2021).ru.vtt".
+// The ISO 639-1 code is what players (VLC, Kodi, Plex) match the track by;
+// languages the site labels in a way the package does not know are written as
+// the sanitized track name instead.
+func subtitleOutput(output, lang string) string {
+	base := strings.TrimSuffix(output, filepath.Ext(output))
+	tag, ok := hdrezka.SubtitleLanguageCode(lang)
+	if !ok {
+		tag = sanitizeFilename(strings.ReplaceAll(lang, string(filepath.Separator), "-"))
+	}
+	if tag == "" {
+		return base + ".vtt"
+	}
+	return base + "." + tag + ".vtt"
 }
 
 func sanitizeFilename(filename string) string {
@@ -206,61 +232,75 @@ func main() {
 		if season > 0 {
 			output = sanitizeFilename(fmt.Sprintf("s%02de%02d %s", season, episode, output))
 		}
-		fileInfo, err := os.Stat(output)
-		if !args.Overwrite && err == nil && fileInfo.Size() > 0 {
-			fmt.Printf("File %s already exists, skipping\n", output)
+		outputSub := subtitleOutput(output, args.Subtitle)
+
+		// An existing video must not skip a requested subtitle: the subtitle
+		// can be fetched on its own for an already downloaded file.
+		haveVideo := !args.Overwrite && fileExists(output)
+		needSubtitle := args.Subtitle != "" && (args.Overwrite || !fileExists(outputSub))
+		if haveVideo && !needSubtitle {
+			if args.Subtitle != "" {
+				fmt.Printf("Files %s and %s already exist, skipping\n", output, outputSub)
+			} else {
+				fmt.Printf("File %s already exists, skipping\n", output)
+			}
 			return
 		}
+
 		stream, err := translation.GetStream(season, episode)
 		if err != nil {
 			fmt.Printf("ERROR %s: %s\n", output, err)
 			return
 		}
-		format, ok := stream.Formats[args.Quality]
-		if !ok {
-			fmt.Printf("ERROR %s: quality %s not found (available: %s)\n",
-				output, args.Quality, strings.Join(stream.Qualities(), ", "))
-			return
-		}
-		if format.IsPremium {
-			fmt.Printf("WARNING %s: quality %s requires a premium subscription, the download will be a teaser file\n",
-				output, args.Quality)
-		}
 
-		if !args.UseHLS {
-			if size, err := format.Size(r.Client); err == nil {
-				fmt.Printf("%s [%s]: %s\n", output, args.Quality, hdrezka.FormatBytes(size))
-			}
-		}
-
-		// Download using HLS or MP4 based on user choice
-		if args.UseHLS {
-			// Use HLS stream
-			if format.HLS == "" {
-				fmt.Printf("ERROR %s: HLS stream not available for quality %s\n", output, args.Quality)
+		if haveVideo {
+			fmt.Printf("File %s already exists, downloading subtitle only\n", output)
+		} else {
+			format, ok := stream.Formats[args.Quality]
+			if !ok {
+				fmt.Printf("ERROR %s: quality %s not found (available: %s)\n",
+					output, args.Quality, strings.Join(stream.Qualities(), ", "))
 				return
 			}
-			err = downloadHLSPlaylist(format.HLS, output)
-		} else {
-			// Use MP4 stream
-			err = downloadFile(format.MP4, output, args.MaxAttempt)
-		}
+			if format.IsPremium {
+				fmt.Printf("WARNING %s: quality %s requires a premium subscription, the download will be a teaser file\n",
+					output, args.Quality)
+			}
 
-		if err != nil {
-			fmt.Printf("ERROR %s: %s\n", output, err)
-			return
+			if !args.UseHLS {
+				if size, err := format.Size(r.Client); err == nil {
+					fmt.Printf("%s [%s]: %s\n", output, args.Quality, hdrezka.FormatBytes(size))
+				}
+			}
+
+			// Download using HLS or MP4 based on user choice
+			if args.UseHLS {
+				// Use HLS stream
+				if format.HLS == "" {
+					fmt.Printf("ERROR %s: HLS stream not available for quality %s\n", output, args.Quality)
+					return
+				}
+				err = downloadHLSPlaylist(format.HLS, output)
+			} else {
+				// Use MP4 stream
+				err = downloadFile(format.MP4, output, args.MaxAttempt)
+			}
+
+			if err != nil {
+				fmt.Printf("ERROR %s: %s\n", output, err)
+				return
+			}
 		}
 
 		// Download subtitles if requested
-		if args.Subtitle != "" {
+		if needSubtitle {
 			subtitle, ok := stream.Subtitles[args.Subtitle]
 			if !ok {
-				fmt.Printf("ERROR %s: subtitle %s not found\n", output, args.Subtitle)
+				fmt.Printf("ERROR %s: subtitle %s not found (available: %s)\n",
+					output, args.Subtitle, strings.Join(slices.Sorted(maps.Keys(stream.Subtitles)), ", "))
 				return
 			}
-			outputSub := output[:strings.LastIndex(output, ".")] + ".vtt"
-			err = downloadFile(subtitle, outputSub, args.MaxAttempt)
-			if err != nil {
+			if err := downloadFile(subtitle, outputSub, args.MaxAttempt); err != nil {
 				fmt.Printf("ERROR %s: %s\n", outputSub, err)
 				return
 			}

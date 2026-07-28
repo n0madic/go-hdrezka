@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/n0madic/go-hdrezka"
 )
 
 // Media Station X object model. MSX builds its whole UI from JSON documents
@@ -188,32 +190,11 @@ func videoAction(base, mediaURL string, subtitles map[string]string) (string, ma
 	return action, props
 }
 
-// subtitleLanguageCodes maps the language names HDrezka uses to ISO 639-1
-// codes expected by the HTML5X plugin.
-var subtitleLanguageCodes = map[string]string{
-	"Русский":     "ru",
-	"Українська":  "uk",
-	"Украинский":  "uk",
-	"English":     "en",
-	"Английский":  "en",
-	"Deutsch":     "de",
-	"Немецкий":    "de",
-	"Français":    "fr",
-	"Французский": "fr",
-	"Español":     "es",
-	"Испанский":   "es",
-	"Italiano":    "it",
-	"Итальянский": "it",
-	"Polski":      "pl",
-	"Польский":    "pl",
-	"Türkçe":      "tr",
-	"Турецкий":    "tr",
-}
-
-// subtitleCode returns the language code for a subtitle track name. Unknown
-// names fall back to a positional code so the property keys stay unique.
+// subtitleCode returns the ISO 639-1 code expected by the HTML5X plugin for a
+// subtitle track name. Unknown names fall back to a positional code so the
+// property keys stay unique.
 func subtitleCode(lang string, index int) string {
-	if code, ok := subtitleLanguageCodes[lang]; ok {
+	if code, ok := hdrezka.SubtitleLanguageCode(lang); ok {
 		return code
 	}
 	return "s" + strconv.Itoa(index)
