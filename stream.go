@@ -162,7 +162,7 @@ func (s *Stream) Size(client *http.Client, quality string) (int64, error) {
 		return 0, fmt.Errorf("stream has no formats")
 	}
 	if quality == "" {
-		quality = s.bestQuality()
+		quality = s.BestQuality()
 	}
 	format, ok := s.Formats[quality]
 	if !ok {
@@ -175,15 +175,21 @@ func (s *Stream) Size(client *http.Client, quality string) (int64, error) {
 // best available format can be selected deterministically.
 var qualityOrder = []string{"2160p", "1080p Ultra", "1080p", "720p", "480p", "360p"}
 
-// bestQuality returns the highest-ranked quality label present in the stream.
+// BestQuality returns the highest-ranked quality label present in the stream.
 // Formats flagged as premium are skipped while any regular format exists — the
 // CDN serves a teaser file for them unless the account has a subscription (see
-// VideoFormat.IsPremium).
-func (s *Stream) bestQuality() string {
-	if q := bestQualityOf(s.Formats, false); q != "" {
+// VideoFormat.IsPremium). Returns "" for a stream without formats.
+func (s *Stream) BestQuality() string {
+	return bestQualityOfAny(s.Formats)
+}
+
+// bestQualityOfAny picks the best label among formats, falling back to premium
+// ones only when no regular format is available.
+func bestQualityOfAny(formats map[string]VideoFormat) string {
+	if q := bestQualityOf(formats, false); q != "" {
 		return q
 	}
-	return bestQualityOf(s.Formats, true)
+	return bestQualityOf(formats, true)
 }
 
 // bestQualityOf picks the highest-ranked label among the formats. Known labels
@@ -211,6 +217,43 @@ func bestQualityOf(formats map[string]VideoFormat, withPremium bool) string {
 		}
 	}
 	return best
+}
+
+// BestQualityLabel is the value ResolveQuality accepts to mean "whatever the
+// stream offers as its highest playable quality".
+const BestQualityLabel = "best"
+
+// ResolveQuality maps a requested quality to a label present in the stream and
+// reports whether a match was found. An empty request or BestQualityLabel picks
+// BestQuality(); otherwise an exact label wins, then a case-insensitive one,
+// then any label of the same vertical resolution (so "1080p" also finds
+// "1080p Ultra" when the plain variant is missing), preferring non-premium.
+func (s *Stream) ResolveQuality(quality string) (string, bool) {
+	quality = strings.TrimSpace(quality)
+	if quality == "" || strings.EqualFold(quality, BestQualityLabel) {
+		best := s.BestQuality()
+		return best, best != ""
+	}
+	if _, ok := s.Formats[quality]; ok {
+		return quality, true
+	}
+	for label := range s.Formats {
+		if strings.EqualFold(label, quality) {
+			return label, true
+		}
+	}
+	if res := parseResolution(quality); res >= 0 {
+		sameRes := make(map[string]VideoFormat)
+		for label, format := range s.Formats {
+			if parseResolution(label) == res {
+				sameRes[label] = format
+			}
+		}
+		if label := bestQualityOfAny(sameRes); label != "" {
+			return label, true
+		}
+	}
+	return "", false
 }
 
 // Qualities returns the stream's quality labels ordered from best to worst:

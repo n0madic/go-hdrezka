@@ -127,7 +127,7 @@ size, _ = stream.Formats["720p"].Size(r.Client)
 Qualities available only with a subscription (currently `1080p Ultra`) are
 marked on the site with a premium badge. Without a premium account the CDN
 serves a short teaser file for them instead of the movie, so `VideoFormat`
-reports them via `IsPremium` and `Stream.Size(client, "")` skips them while any
+reports them via `IsPremium` and `Stream.BestQuality()` skips them while any
 regular quality exists. Signing in with a premium account makes the very same
 quality a normal format (`IsPremium` is false) with the real file behind it.
 
@@ -137,6 +137,13 @@ for _, quality := range stream.Qualities() {
     format := stream.Formats[quality]
     fmt.Println(quality, format.IsPremium)
 }
+
+// Highest playable quality, e.g. "1080p Ultra" for a premium account.
+best := stream.BestQuality()
+
+// Or resolve a user-supplied label: "" / "best" means the highest available,
+// otherwise an exact, case-insensitive or same-resolution match wins.
+quality, ok := stream.ResolveQuality("1080p")
 ```
 
 Fully functional examples can be found in the `cmd` folder:

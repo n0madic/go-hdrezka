@@ -25,7 +25,7 @@ Options:
                          max attempts for download file [default: 3]
   --overwrite, -o        overwrite output file if exists
   --quality QUALITY, -q QUALITY
-                         quality for download video [default: 1080p]
+                         quality for download video ("best" picks the highest available, e.g. 1080p Ultra on a premium account) [default: best]
   --season RANGE, -s RANGE
                          season or range of seasons to download (e.g. 1, 2-3, 1,3,5)
   --episodes RANGE, -e RANGE
@@ -43,6 +43,10 @@ Options:
   --no-antibot-solver    disable automatic solving of Anubis proof-of-work anti-bot challenges
   --help, -h             display this help and exit
 ```
+
+## Quality selection
+
+`--quality` defaults to `best`: the highest quality the account can actually play. Premium-only formats (`1080p Ultra` without a subscription) are skipped there, because the CDN serves a short teaser file for them; with a premium account the same format is a regular one and gets picked. An explicit label is matched exactly, then case-insensitively, then by resolution — `-q 1080p` also finds `1080p Ultra` when there is no plain `1080p`. Use `-i` to see every available quality with its file size.
 
 ## Authentication
 

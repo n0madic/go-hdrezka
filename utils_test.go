@@ -280,6 +280,68 @@ func TestStreamQualities(t *testing.T) {
 	}
 }
 
+func TestStreamResolveQuality(t *testing.T) {
+	t.Parallel()
+
+	formats := map[string]VideoFormat{
+		"480p":        {},
+		"720p":        {},
+		"1080p":       {},
+		"1080p Ultra": {},
+	}
+
+	tests := []struct {
+		name    string
+		formats map[string]VideoFormat
+		request string
+		want    string
+		wantOK  bool
+	}{
+		{name: "best keyword", formats: formats, request: "best", want: "1080p Ultra", wantOK: true},
+		{name: "best keyword any case", formats: formats, request: "Best", want: "1080p Ultra", wantOK: true},
+		{name: "empty means best", formats: formats, request: "", want: "1080p Ultra", wantOK: true},
+		{
+			name:    "best skips premium",
+			formats: map[string]VideoFormat{"1080p": {}, "1080p Ultra": {IsPremium: true}},
+			request: "best",
+			want:    "1080p",
+			wantOK:  true,
+		},
+		{name: "exact label wins", formats: formats, request: "1080p", want: "1080p", wantOK: true},
+		{name: "exact ultra label", formats: formats, request: "1080p Ultra", want: "1080p Ultra", wantOK: true},
+		{name: "case insensitive", formats: formats, request: "1080P ULTRA", want: "1080p Ultra", wantOK: true},
+		{name: "surrounding spaces", formats: formats, request: " 720p ", want: "720p", wantOK: true},
+		{
+			name:    "same resolution fallback",
+			formats: map[string]VideoFormat{"720p": {}, "1080p Ultra": {}},
+			request: "1080p",
+			want:    "1080p Ultra",
+			wantOK:  true,
+		},
+		{
+			name:    "same resolution fallback prefers non-premium",
+			formats: map[string]VideoFormat{"1080p Ultra": {IsPremium: true}, "1080p HDR": {}},
+			request: "1080p",
+			want:    "1080p HDR",
+			wantOK:  true,
+		},
+		{name: "no downgrade to another resolution", formats: formats, request: "2160p"},
+		{name: "unknown label", formats: formats, request: "hd"},
+		{name: "empty stream", formats: nil, request: "best"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := &Stream{Formats: tt.formats}
+			got, ok := s.ResolveQuality(tt.request)
+			if got != tt.want || ok != tt.wantOK {
+				t.Errorf("ResolveQuality(%q) = (%q, %v), want (%q, %v)", tt.request, got, ok, tt.want, tt.wantOK)
+			}
+		})
+	}
+}
+
 func TestStreamBestQuality(t *testing.T) {
 	t.Parallel()
 
@@ -327,8 +389,8 @@ func TestStreamBestQuality(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Stream{Formats: tt.formats}
-			if got := s.bestQuality(); got != tt.want {
-				t.Errorf("bestQuality() = %q, want %q", got, tt.want)
+			if got := s.BestQuality(); got != tt.want {
+				t.Errorf("BestQuality() = %q, want %q", got, tt.want)
 			}
 		})
 	}

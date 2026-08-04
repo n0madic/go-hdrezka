@@ -22,7 +22,7 @@ var args struct {
 	Info        bool   `arg:"-i" help:"show info about video only"`
 	MaxAttempt  int    `arg:"-m,--max-attempt" placeholder:"INT" default:"3" help:"max attempts for download file"`
 	Overwrite   bool   `arg:"-o,--overwrite" help:"overwrite output file if exists"`
-	Quality     string `arg:"-q,--quality" default:"1080p" help:"quality for download video"`
+	Quality     string `arg:"-q,--quality" default:"best" help:"quality for download video (\"best\" picks the highest available, e.g. 1080p Ultra on a premium account)"`
 	Season      string `arg:"-s,--season" placeholder:"RANGE" help:"season or range of seasons to download (e.g. 1, 2-3, 1,3,5)"`
 	Episodes    string `arg:"-e,--episodes" placeholder:"RANGE" help:"range of episodes to download, requires single --season (e.g. 1, 3-5, 1,3,7-9)"`
 	Translation string `arg:"-t,--translation" placeholder:"NAME" help:"translation for download video"`
@@ -256,20 +256,21 @@ func main() {
 		if haveVideo {
 			fmt.Printf("File %s already exists, downloading subtitle only\n", output)
 		} else {
-			format, ok := stream.Formats[args.Quality]
+			quality, ok := stream.ResolveQuality(args.Quality)
 			if !ok {
 				fmt.Printf("ERROR %s: quality %s not found (available: %s)\n",
 					output, args.Quality, strings.Join(stream.Qualities(), ", "))
 				return
 			}
+			format := stream.Formats[quality]
 			if format.IsPremium {
 				fmt.Printf("WARNING %s: quality %s requires a premium subscription, the download will be a teaser file\n",
-					output, args.Quality)
+					output, quality)
 			}
 
 			if !args.UseHLS {
 				if size, err := format.Size(r.Client); err == nil {
-					fmt.Printf("%s [%s]: %s\n", output, args.Quality, hdrezka.FormatBytes(size))
+					fmt.Printf("%s [%s]: %s\n", output, quality, hdrezka.FormatBytes(size))
 				}
 			}
 
@@ -277,7 +278,7 @@ func main() {
 			if args.UseHLS {
 				// Use HLS stream
 				if format.HLS == "" {
-					fmt.Printf("ERROR %s: HLS stream not available for quality %s\n", output, args.Quality)
+					fmt.Printf("ERROR %s: HLS stream not available for quality %s\n", output, quality)
 					return
 				}
 				err = downloadHLSPlaylist(format.HLS, output)
